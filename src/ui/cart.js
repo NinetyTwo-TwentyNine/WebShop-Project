@@ -1,23 +1,26 @@
-import { renderNavbar } from "../layout/navbar.js";
-import { renderFooter } from "../layout/footer.js";
-import { cartApi } from "../../api/cartApi.js";
-import { offersApi } from "../../api/offersApi.js";
-import { ordersApi } from "../../api/ordersApi.js";
+import { createNavbar } from "./layout/navbar.js";
+import { createFooter } from "./layout/footer.js";
+import { cartApi } from "../api/cartApi.js";
+import { offersApi } from "../api/offersApi.js";
+import { ordersApi } from "../api/ordersApi.js";
+import { initAuth } from "../state/authState.js";
 
-renderNavbar();
-renderFooter();
-
-const container = document.getElementById("cartItems");
-const totalPriceEl = document.getElementById("totalPrice");
-const clearBtn = document.getElementById("clearCartBtn");
-const purchaseBtn = document.getElementById("purchaseBtn");
+document.getElementById("navbar").append(createNavbar());
+document.getElementById("footer").append(createFooter());
 
 async function loadCart() {
+  await initAuth();
+
   const cart = await cartApi.getCart();
   renderCart(cart);
 }
 
 function renderCart(cart) {
+  const container = document.getElementById("cartItems");
+  const totalPriceEl = document.getElementById("totalPrice");
+  const clearBtn = document.getElementById("clearCartBtn");
+  const purchaseBtn = document.getElementById("purchaseBtn");
+
   container.innerHTML = "";
   let total = 0;
 
@@ -56,23 +59,23 @@ function renderCart(cart) {
 
   totalPriceEl.textContent = total.toFixed(2);
 
+
+  clearBtn.onclick = () => {
+    cartApi.clearCart();
+    loadCart();
+  };
+
+  purchaseBtn.onclick = async () => {
+    // TODO:
+    // 1. Apply offers
+    // 2. Call ordersApi.createOrder()
+    // 3. Clear cart
+  };
+
   clearBtn.disabled = cart.items.length === 0;
   purchaseBtn.disabled = cart.items.length === 0;
 }
 
-clearBtn.onclick = () => {
-  cartApi.clearCart();
-  loadCart();
-};
-
-purchaseBtn.onclick = async () => {
-  // TODO:
-  // 1. Apply offers
-  // 2. Call ordersApi.createOrder()
-  // 3. Clear cart
-};
-
 document.addEventListener("DOMContentLoaded", () => {
-  initAuth();
   loadCart();
 });

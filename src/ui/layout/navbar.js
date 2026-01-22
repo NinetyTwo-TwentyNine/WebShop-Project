@@ -23,7 +23,7 @@ export function createNavbar() {
 
     if (isAuthenticated()) {
       linksContainer.append(link("Cart", "./cart.html"));
-      linksContainer.append(link("Orders", "./orders.html"));
+      linksContainer.append(link("Profile", "./profile.html"));
       linksContainer.append(link("Sign out", "#", true));
     } else {
       linksContainer.append(link("Sign in", "./login.html"));

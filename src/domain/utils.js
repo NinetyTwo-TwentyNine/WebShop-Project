@@ -19,3 +19,17 @@ export function pickRandomProductPerCategory(products) {
 
   return result;
 }
+
+export function calculateOrderPrice(order)
+{
+  if (!order || !order.items)
+  {
+    return null;
+  }
+
+  let totalprice = 0;
+  order.items.map(i => {
+    totalprice += Number(i.productPrice) * Number(i.quantity);
+  })
+  return totalprice;
+}

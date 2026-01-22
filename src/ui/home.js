@@ -9,6 +9,18 @@ import { initAuth } from "../state/authState.js";
 document.getElementById("navbar-root").append(createNavbar());
 document.getElementById("footer-root").append(createFooter());
 
+async function loadHomePage() {
+  await initAuth();
+
+  const [categories, featuredProducts] = await Promise.all([
+    categoriesApi.getAllCategories(),
+    productsApi.getFeaturedProductsByCategory(),
+  ]);
+
+  renderCategories(categories);
+  renderFeaturedProducts(featuredProducts);
+}
+
 function renderCategories(categories) {
   const container = document.getElementById("categories");
 
@@ -34,17 +46,6 @@ function renderFeaturedProducts(products) {
   });
 }
 
-async function loadHomePage() {
-  const [categories, featuredProducts] = await Promise.all([
-    categoriesApi.getAllCategories(),
-    productsApi.getFeaturedProductsByCategory(),
-  ]);
-
-  renderCategories(categories);
-  renderFeaturedProducts(featuredProducts);
-}
-
 document.addEventListener("DOMContentLoaded", () => {
-  initAuth();
   loadHomePage();
 });

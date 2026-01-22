@@ -11,6 +11,8 @@ document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
 
 async function loadLoginPage() {
+  await initAuth();
+
   if (isAuthenticated())
   {
     window.location.replace("./home.html");
@@ -44,6 +46,5 @@ async function loadLoginPage() {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  initAuth();
   loadLoginPage();
 });

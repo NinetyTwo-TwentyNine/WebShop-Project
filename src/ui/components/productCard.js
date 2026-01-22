@@ -11,5 +11,10 @@ export function createProductCard(product) {
     </div>
   `;
 
+  const button = card.querySelector("button");
+  button.addEventListener("click", () => {
+    window.location.href = `product.html?id=${product.id}`;
+  });
+
   return card;
 }

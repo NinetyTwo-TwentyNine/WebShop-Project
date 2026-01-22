@@ -5,8 +5,8 @@ import { offersApi } from "../api/offersApi.js";
 import { cartApi } from "../api/cartApi.js";
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
 
-createNavbar();
-createFooter();
+document.getElementById("navbar").append(createNavbar());
+document.getElementById("footer").append(createFooter());
 
 const params = new URLSearchParams(window.location.search);
 const productId = params.get("id");
@@ -17,6 +17,8 @@ if (!productId) {
 }
 
 async function loadProduct() {
+  await initAuth();
+
   const products = await productsApi.getProductsById(productId);
   if (!products.length) {
     alert("Product not found.");
@@ -133,6 +135,5 @@ function bindProductActions(product) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
-  initAuth();
   loadProduct();
 });

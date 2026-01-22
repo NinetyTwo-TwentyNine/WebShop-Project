@@ -26,6 +26,27 @@ export const offersApi = {
       return o.affectedId === product.id;
     });
 
+    const finalData = await this.filterOffers(userEmail, matchingOffers);
+    return finalData;
+  },
+
+  async getAllOffers(userEmail) {
+    const offersRef = collection(db, "offers");
+
+    // active offers only
+    const q = query(
+      offersRef,
+      where("isActive", "==", true)
+    );
+
+    const snapshot = await getDocs(q);
+    const allOffers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const finalData = await this.filterOffers(userEmail, allOffers);
+    return finalData;
+  },
+
+  async filterOffers(userEmail, matchingOffers) {
     const globalOffers = matchingOffers.filter(o => o.isGlobal);
 
     let userOffers = [];

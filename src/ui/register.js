@@ -10,6 +10,8 @@ document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
 
 async function loadRegisterPage() {
+  await initAuth();
+
   const email = document.getElementById("email");
   const password = document.getElementById("password");
   const btn = document.getElementById("registerBtn");
@@ -40,6 +42,5 @@ async function loadRegisterPage() {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  initAuth();
   loadRegisterPage();
 });

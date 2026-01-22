@@ -9,6 +9,8 @@ document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
 
 async function loadResetPasswordPage() {
+  await initAuth();
+
   const email = document.getElementById("email");
   const btn = document.getElementById("resetBtn");
 
@@ -37,6 +39,5 @@ async function loadResetPasswordPage() {
 };
 
 document.addEventListener("DOMContentLoaded", () => {
-  initAuth();
   loadResetPasswordPage();
 });
