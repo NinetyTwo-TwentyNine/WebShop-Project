@@ -4,6 +4,7 @@ import { productsApi } from "../api/productsApi.js";
 import { offersApi } from "../api/offersApi.js";
 import { cartApi } from "../api/cartApi.js";
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
+import { formatCents } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -28,7 +29,7 @@ async function loadProduct() {
   const product = products[0];
 
   const offers = await offersApi.getApplicableOffers(product, (getCurrentUser()?.email));
-  renderProduct(product, offers.personalOffers);
+  renderProduct(product, offers);
 }
 
 function renderProduct(product, offers) {
@@ -42,7 +43,7 @@ function renderProduct(product, offers) {
         ${renderProductInfo(product)}
         ${renderAddToCartButton(product)}
         <hr />
-        ${renderOffersSection(offers)}
+        ${renderOffersSection(offers.globalOffers, offers.personalOffers)}
       </div>
     </div>
   `;
@@ -64,7 +65,7 @@ function renderProductInfo(product) {
   return `
     <h3>${product.title}</h3>
     <p class="text-muted">${product.description}</p>
-    <p><strong>Price:</strong> $${product.price}</p>
+    <p><strong>Price:</strong> $${formatCents(product.price)}</p>
     <p>
       <strong>Stock:</strong> 
       <span class="${product.stock === 0 ? "text-danger" : ""}">
@@ -88,8 +89,8 @@ function renderAddToCartButton(product) {
   `;
 }
 
-function renderOffersSection(offers) {
-  if (!offers || offers.length === 0) {
+function renderOffersSection(globalOffers = [], personalOffers = []) {
+  if (globalOffers.length === 0 && personalOffers.length === 0) {
     return `
       <h5>Available offers</h5>
       <p class="text-muted">No available offers</p>
@@ -98,22 +99,48 @@ function renderOffersSection(offers) {
 
   return `
     <h5>Available offers</h5>
-    <ul class="list-group">
-      ${offers.map(renderOfferItem).join("")}
-    </ul>
+
+    ${globalOffers.length > 0 ? `
+      <div class="mb-3">
+        <div class="fw-semibold mb-1">Global offers</div>
+        <ul class="list-group">
+          ${globalOffers.map(o => renderOfferItem(o, false)).join("")}
+        </ul>
+      </div>
+    ` : ""}
+
+    ${personalOffers.length > 0 ? `
+      <div>
+        <div class="fw-semibold mb-1">Personal offers</div>
+        <ul class="list-group">
+          ${personalOffers.map(o => renderOfferItem(o, true)).join("")}
+        </ul>
+      </div>
+    ` : ""}
   `;
 }
 
-function renderOfferItem(offer) {
+function renderOfferItem(offer, isPersonal) {
   return `
     <li class="list-group-item d-flex justify-content-between align-items-center">
       <div>
         <strong>${offer.code}</strong>
         <div class="small text-muted">${offer.description ?? ""}</div>
       </div>
-      <span class="badge bg-success">
-        ${offer.discountPercent}% OFF
-      </span>
+
+      <div class="text-end">
+        <span class="badge bg-success mb-1 d-block">
+          ${offer.discountPercent}% OFF
+        </span>
+
+        ${
+          isPersonal
+            ? `<a href="./profile.html" class="btn btn-sm btn-outline-primary">
+                 View in profile
+               </a>`
+            : `<span class="badge bg-secondary">Auto-applied</span>`
+        }
+      </div>
     </li>
   `;
 }
@@ -128,8 +155,8 @@ function bindProductActions(product) {
       return;
     }
 
-    // TODO: prevent duplicates (cartState check)
-    await cartApi.addToCart(product.id);
+    let userEmail = getCurrentUser()?.email;
+    await cartApi.addToCart(userEmail, product);
     alert("Added to cart.");
   };
 }

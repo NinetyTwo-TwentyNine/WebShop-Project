@@ -3,7 +3,7 @@ import { createFooter } from "./layout/footer.js";
 
 import { auth } from "../config/firebaseClient.js";
 import { signInWithEmailAndPassword } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-import { initAuth, isAuthenticated } from "../state/authState.js";
+import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
 import { PASSWORD_LENGTH_MIN } from "../data/constants.js";
 
 
@@ -12,7 +12,6 @@ document.getElementById("footer").append(createFooter());
 
 async function loadLoginPage() {
   await initAuth();
-
   if (isAuthenticated())
   {
     window.location.replace("./home.html");

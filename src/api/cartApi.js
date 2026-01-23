@@ -15,7 +15,6 @@ export const cartApi = {
     const snap = await getDocs(
       query(collection(db, "carts"), where("userEmail", "==", userEmail))
     );
-
     if (snap.empty) {
       const ref = await addDoc(collection(db, "carts"), { userEmail });
       return { id: ref.id, userEmail, items: [] };
@@ -31,8 +30,9 @@ export const cartApi = {
     return cart;
   },
 
-  async addToCart({ cart, product }) {
-    // TODO: prevent duplicates
+  async addToCart(userEmail, product) {
+    const cart = await this.getUserCart(userEmail);
+
     const existing = cart.items.find(i => i.productId === product.id);
     if (existing) return cart;
 

@@ -33,3 +33,13 @@ export function calculateOrderPrice(order)
   })
   return totalprice;
 }
+
+export function formatCents(cents) {
+  return (cents / 100).toFixed(2);
+}
+
+export function applyDiscounts(basePriceCents, offers = []) {
+  return offers.reduce((price, offer) => {
+    return Math.round(price * (100 - offer.discountPercent) / 100);
+  }, basePriceCents);
+}

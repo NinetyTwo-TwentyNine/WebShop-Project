@@ -7,66 +7,68 @@ import {
 import { db } from "../config/firebaseClient.js";
 
 export const offersApi = {
-  async getApplicableOffers(product, userEmail) {
-    const offersRef = collection(db, "offers");
-
-    // active offers only
-    const q = query(
-      offersRef,
-      where("isActive", "==", true)
-    );
-
-    const snapshot = await getDocs(q);
-    const allOffers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    const matchingOffers = allOffers.filter(o => {
+  filterOffersByProduct(allOffers, product) {
+    return allOffers.filter(o => {
       if (o.isEntireCategory) {
         return o.affectedId === product.categoryId;
       }
       return o.affectedId === product.id;
     });
-
-    const finalData = await this.filterOffers(userEmail, matchingOffers);
-    return finalData;
   },
 
-  async getAllOffers(userEmail) {
-    const offersRef = collection(db, "offers");
-
-    // active offers only
-    const q = query(
-      offersRef,
-      where("isActive", "==", true)
-    );
-
-    const snapshot = await getDocs(q);
-    const allOffers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
-
-    const finalData = await this.filterOffers(userEmail, allOffers);
-    return finalData;
-  },
-
-  async filterOffers(userEmail, matchingOffers) {
-    const globalOffers = matchingOffers.filter(o => o.isGlobal);
+  divideOffers(allOffers, userEmail, userOfferSnap) {
+    const globalOffers = allOffers.filter(o => o.isGlobal);
 
     let userOffers = [];
     if (userEmail) {
-      const userOfferSnap = await getDocs(
-        query(
-          collection(db, "userOffers"),
-          where("userEmail", "==", userEmail),
-          where("isUsed", "==", false)
-        )
-      );
-
       const userOfferIds = userOfferSnap.docs.map(d => d.data().offerId);
-      userOffers = matchingOffers.filter(o => userOfferIds.includes(o.id));
+      userOffers = allOffers.filter(o => userOfferIds.includes(o.id));
     }
 
     return {
       globalOffers,
       personalOffers: userOffers
     };
+  },
+
+  async downloadUserOffers(userEmail) {
+    const offersQuery = query(
+      collection(db, "offers"),
+      where("isActive", "==", true)    // active offers only
+    );
+    const userOffersQuery = query(
+      collection(db, "userOffers"),
+      where("userEmail", "==", userEmail),
+      //where("isUsed", "==", false)
+    )
+
+    const [snapshot, userOfferSnap] = await Promise.all([
+      getDocs(offersQuery),
+      getDocs(userOffersQuery),
+    ]);
+
+    return { offersSnapshop: snapshot, userOffersSnapshot: userOfferSnap };
+  },
+
+  async getApplicableOffers(product, userEmail) {
+    const userOfferData = await this.downloadUserOffers(userEmail);
+    const snapshot = userOfferData.offersSnapshop, userOfferSnap = userOfferData.userOffersSnapshot;
+
+    const allOffers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+    const matchingOffers = this.filterOffersByProduct(allOffers, product);
+
+    const finalData = this.divideOffers(matchingOffers, userEmail, userOfferSnap);
+    return finalData;
+  },
+
+  async getAllOffers(userEmail) {
+    const userOfferData = await this.downloadUserOffers(userEmail);
+    const snapshot = userOfferData.offersSnapshop, userOfferSnap = userOfferData.userOffersSnapshot;
+
+    const allOffers = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+
+    const finalData = this.divideOffers(allOffers, userEmail, userOfferSnap);
+    return finalData;
   }
 
   // TODO: apply chanceParams during order completion

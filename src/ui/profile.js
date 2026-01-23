@@ -5,6 +5,7 @@ import { offersApi } from "../api/offersApi.js";
 import { calculateOrderPrice } from "../domain/utils.js";
 import { getOrderStatusLabel, ORDER_STATUS } from "../data/constants.js" 
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
+import { formatCents } from "../domain/utils.js";
 // import { orderState } from "../state/orderState.js";
 
 document.getElementById("navbar").append(createNavbar());
@@ -12,7 +13,6 @@ document.getElementById("footer").append(createFooter());
 
 async function loadProfile() {
   await initAuth();
-
   if (!isAuthenticated())
   {
     window.location.replace("./login.html");
@@ -74,7 +74,7 @@ function renderOrderBody(order) {
     <div class="card-body d-none">
       ${renderOrderItems(order.items)}
       <hr />
-      <strong>Total: $${calculateOrderPrice(order)}</strong>
+      <strong>Total: $${formatCents(calculateOrderPrice(order))}</strong>
       <div class="mt-2">
         ${renderOrderActions(order)}
       </div>
@@ -86,7 +86,7 @@ function renderOrderItems(items) {
   return items.map(i => `
     <p class="mb-1">
       ${i.productTitle} × ${i.quantity}
-      <span class="float-end">$${i.productPrice}</span>
+      <span class="float-end">$${formatCents(i.productPrice)}</span>
     </p>
   `).join("");
 }
@@ -140,17 +140,48 @@ function renderOfferCard(offer) {
   const div = document.createElement("div");
   div.className = "card mb-2";
 
+  const isUsed = offer.isUsed;
+  const isActivated = offer.isActivated;
+
+  div.classList.toggle("opacity-50", isUsed);
+
   div.innerHTML = `
-    <div class="card-body">
-      <strong>${offer.code}</strong>
-      <span class="badge bg-success ms-2">
-        ${offer.discountPercent}% OFF
-      </span>
-      <div class="small text-muted mt-1">
-        ${offer.description ?? ""}
+    <div class="card-body d-flex justify-content-between align-items-center">
+      <div>
+        <strong>${offer.code}</strong>
+
+        <span class="badge bg-success ms-2">
+          ${offer.discountPercent}% OFF
+        </span>
+
+        <div class="small text-muted mt-1">
+          ${offer.description ?? ""}
+        </div>
+      </div>
+
+      <div>
+        ${
+          isUsed
+            ? `<span class="badge bg-secondary">Used</span>`
+            : isActivated
+              ? `<span class="badge bg-primary">Activated</span>`
+              : `<button class="btn btn-sm btn-outline-success activate-offer">
+                   Activate
+                 </button>`
+        }
       </div>
     </div>
   `;
+
+  if (!isUsed && !isActivated) {
+    const btn = div.querySelector(".activate-offer");
+    btn.onclick = async () => {
+      // TODO:
+      // await offersApi.activateOffer(offer.offerId)
+      // offerState.update(...)
+      alert("Offer activated (TODO)");
+    };
+  }
 
   return div;
 }

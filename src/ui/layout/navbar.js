@@ -47,6 +47,11 @@ function link(text, href, isButton = false) {
     a.addEventListener("click", e => {
       e.preventDefault();
       signOut(auth);
+
+      const currentPage = new URL(window.location.href).pathname;
+      if (currentPage.endsWith("cart.html") || currentPage.endsWith("profile.html")) {
+        window.location.replace("./home.html");
+      }
     });
   }
 
