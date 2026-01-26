@@ -5,7 +5,7 @@ import { offersApi } from "../api/offersApi.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { productsApi } from "../api/productsApi.js";
 import { initAuth, isAuthenticated, getCurrentUser } from "../state/authState.js";
-import { formatCents, applyDiscounts } from "../domain/utils.js";
+import { formatCents, applyDiscounts, tryFunction } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -19,7 +19,7 @@ async function loadCart() {
   const userEmail = getCurrentUser()?.email;
 
   const [cart, allProducts, allUserOffers] = await Promise.all([
-    cartApi.getUserCart(userEmail),
+    cartApi.initializeUserCart(userEmail),
     productsApi.getAllProducts(),
     offersApi.getAllOffers(userEmail),
   ]);
@@ -31,6 +31,19 @@ async function renderCart(cart, allProducts, allUserOffers) {
   const totalPriceEl = document.getElementById("totalPrice");
   const clearBtn = document.getElementById("clearCartBtn");
   const purchaseBtn = document.getElementById("purchaseBtn");
+
+  function activatePanel(activated, minusBtn = null, plusBtn = null, removeBtn = null)
+  {
+    clearBtn.disabled = !activated || (cart.items.length === 0);
+    purchaseBtn.disabled = !activated || (cart.items.length === 0);
+
+    if (minusBtn != null && plusBtn != null && removeBtn != null) {
+      minusBtn.disabled = !activated;
+      plusBtn.disabled = !activated;
+      removeBtn.disabled = !activated;
+    }
+  }
+
 
   container.innerHTML = "";
   let total = 0;
@@ -103,16 +116,36 @@ async function renderCart(cart, allProducts, allUserOffers) {
         </div>
       `;
 
-      div.querySelector(".minus").onclick = () =>
-        cartApi.updateQuantity(product.id, item.quantity - 1);
+      const minusBtn = div.querySelector(".minus");
+      const plusBtn = div.querySelector(".plus");
+      const removeBtn = div.querySelector(".remove");
 
-      div.querySelector(".plus").onclick = () =>
-        cartApi.updateQuantity(product.id, item.quantity + 1);
+      minusBtn.onclick = async () => {
+        activatePanel(false, minusBtn, plusBtn, removeBtn);
+        let new_cart = cart;
+        await tryFunction("", "Failed to update quantity", async () => {
+          new_cart = await cartApi.updateQuantity(product.id, -1);
+        });
+        renderCart(new_cart, allProducts, allUserOffers);
+      };
 
-      div.querySelector(".remove").onclick = () =>
-        cartApi.removeItem(product.id);
+      plusBtn.addEventListener("click", async () => {
+        activatePanel(false, minusBtn, plusBtn, removeBtn);
+        let new_cart = cart;
+        await tryFunction("", "Failed to update quantity", async () => {
+          new_cart = await cartApi.updateQuantity(product.id, 1);
+        });
+        renderCart(new_cart, allProducts, allUserOffers);
+      });
 
-      // TODO: load and bind applicable offers here
+      removeBtn.addEventListener("click", async () => {
+        activatePanel(false, minusBtn, plusBtn, removeBtn);
+        let new_cart = cart;
+        await tryFunction("", "Failed to remove item", async () => {
+          new_cart = await cartApi.removeItem(product.id);
+        });
+        renderCart(new_cart, allProducts, allUserOffers);
+      });
 
       container.appendChild(div);
     }
@@ -123,11 +156,16 @@ async function renderCart(cart, allProducts, allUserOffers) {
 
   totalPriceEl.textContent = formatCents(total);
 
-
-  clearBtn.onclick = () => {
-    cartApi.clearCart();
-    loadCart();
-  };
+  async function clearBtnListener() {
+    activatePanel(false);
+    let new_cart = cart;
+    await tryFunction("Cart cleared.", "Failed to clear cart", async () => {
+      new_cart = await cartApi.clearCart();
+    });
+    // TODO: avoid rerendering loop
+    renderCart(new_cart, allProducts, allUserOffers);
+  }
+  clearBtn.addEventListener("click", clearBtnListener);
 
   purchaseBtn.onclick = async () => {
     // TODO:
@@ -136,8 +174,7 @@ async function renderCart(cart, allProducts, allUserOffers) {
     // 3. Clear cart
   };
 
-  clearBtn.disabled = cart.items.length === 0;
-  purchaseBtn.disabled = cart.items.length === 0;
+  activatePanel(true);
 }
 
 document.addEventListener("DOMContentLoaded", () => {

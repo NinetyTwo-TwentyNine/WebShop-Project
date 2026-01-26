@@ -1,4 +1,6 @@
-// Main domain (api) emulator
+// =================================
+// Domain (api) emulation
+// =================================
 
 export function pickRandomProductPerCategory(products) {
   const byCategory = new Map();
@@ -20,6 +22,37 @@ export function pickRandomProductPerCategory(products) {
   return result;
 }
 
+export async function createNewUserCart(userEmail, allCarts) {
+  if (userEmail == null || userEmail == "")
+  {
+    throw Error("No proper email was provided.");
+  }
+
+  let cartIdList = [];
+
+  allCarts.forEach(c => {
+    if (c.userEmail == userEmail) throw Error("Tried to create a duplicate cart.");
+    cartIdList.push(Number(c.id));
+  });
+
+  let newCartId = 1;
+  while (cartIdList.includes(newCartId)) {
+    newCartId++;
+  }
+
+  return { id: newCartId, userEmail: userEmail };
+}
+
+export function applyDiscounts(basePriceCents, offers = []) {
+  return offers.reduce((price, offer) => {
+    return Math.round(price * (100 - offer.discountPercent) / 100);
+  }, basePriceCents);
+}
+
+// =================================
+// General purpose functionality
+// =================================
+
 export function calculateOrderPrice(order)
 {
   if (!order || !order.items)
@@ -38,8 +71,15 @@ export function formatCents(cents) {
   return (cents / 100).toFixed(2);
 }
 
-export function applyDiscounts(basePriceCents, offers = []) {
-  return offers.reduce((price, offer) => {
-    return Math.round(price * (100 - offer.discountPercent) / 100);
-  }, basePriceCents);
+export async function tryFunction(successMessage, failureMessage, func) {
+  try {
+    const result = await func();
+    if (successMessage != null && successMessage != "") {
+      alert(successMessage);
+    }
+  } catch (error) {
+    if (failureMessage != null && failureMessage != "") {
+      alert(`${failureMessage}: ${error.message}`);
+    }
+  }
 }

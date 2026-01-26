@@ -4,7 +4,7 @@ import { productsApi } from "../api/productsApi.js";
 import { offersApi } from "../api/offersApi.js";
 import { cartApi } from "../api/cartApi.js";
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
-import { formatCents } from "../domain/utils.js";
+import { formatCents, tryFunction } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -20,15 +20,20 @@ if (!productId) {
 async function loadProduct() {
   await initAuth();
 
-  const products = await productsApi.getProductsById(productId);
-  if (!products.length) {
+  let product;
+  try {
+    product = await productsApi.getProductById(productId);
+  } catch (e) {
     alert("Product not found.");
     window.location.href = "./home.html";
     return;
   }
-  const product = products[0];
 
-  const offers = await offersApi.getApplicableOffers(product, (getCurrentUser()?.email));
+  const userEmail = getCurrentUser()?.email;
+  const [offers, _] = await Promise.all([
+    offersApi.getApplicableOffers(product, userEmail),
+    cartApi.initializeUserCart(userEmail)
+  ]);
   renderProduct(product, offers);
 }
 
@@ -48,7 +53,7 @@ function renderProduct(product, offers) {
     </div>
   `;
 
-  bindProductActions(product);
+  bindProductActions(product, offers);
 }
 
 function renderProductImage(product) {
@@ -145,7 +150,7 @@ function renderOfferItem(offer, isPersonal) {
   `;
 }
 
-function bindProductActions(product) {
+function bindProductActions(product, offers) {
   const addBtn = document.getElementById("addToCartBtn");
   if (!addBtn) return;
 
@@ -155,10 +160,18 @@ function bindProductActions(product) {
       return;
     }
 
-    let userEmail = getCurrentUser()?.email;
-    await cartApi.addToCart(userEmail, product);
-    alert("Added to cart.");
+    addBtn.disabled = true;
+    let new_offers = offers, new_product = product;
+    await tryFunction("Added to cart.", "Failed to add to cart", async () => {
+      await cartApi.addToCart(product.id);
+      [new_product, new_offers] = await Promise.all([
+        productsApi.getProductById(productId),
+        offersApi.getApplicableOffers(product, getCurrentUser()?.email)
+      ]);
+    });
+    renderProduct(new_product, new_offers);
   };
+  addBtn.disabled = false;
 }
 
 document.addEventListener("DOMContentLoaded", () => {

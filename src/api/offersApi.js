@@ -5,6 +5,7 @@ import {
   where,
   getDocs } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { db } from "../config/firebaseClient.js";
+import { DB_COLLECTION_NAME_OFFERS, DB_COLLECTION_NAME_USEROFFERS } from "../data/constants.js";
 
 export const offersApi = {
   filterOffersByProduct(allOffers, product) {
@@ -33,11 +34,11 @@ export const offersApi = {
 
   async downloadUserOffers(userEmail) {
     const offersQuery = query(
-      collection(db, "offers"),
+      collection(db, DB_COLLECTION_NAME_OFFERS),
       where("isActive", "==", true)    // active offers only
     );
     const userOffersQuery = query(
-      collection(db, "userOffers"),
+      collection(db, DB_COLLECTION_NAME_USEROFFERS),
       where("userEmail", "==", userEmail),
       //where("isUsed", "==", false)
     )
