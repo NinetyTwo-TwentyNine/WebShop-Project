@@ -10,7 +10,7 @@ export const productsApi = {
     const snapshot = await getDocs(collection(db, DB_COLLECTION_NAME_PRODUCTS));
 
     return snapshot.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }));
   },
@@ -23,12 +23,12 @@ export const productsApi = {
 
     const snapshot = await getDocs(q);
     if (snapshot.empty) {
-        throw new Error(`Product with this id (${toString(productId)}) doesn't exist.`);
+        throw new Error(`Product with this id (${productId}) doesn't exist.`);
     }
 
     if (!getReference) {
       return snapshot.docs.map(doc => ({
-        id: doc.id,
+        docId: doc.id,
         ...doc.data()
       }))[0];
     } else {
@@ -39,7 +39,7 @@ export const productsApi = {
   async checkQuantityUpdate(productId, quantity_change) {
     const productSnap = await this.getProductById(productId, true);
     const product = productSnap.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }))[0];
  
@@ -49,7 +49,7 @@ export const productsApi = {
 
   async updateProductQuantity(productSnap, quantity_change) {
     const product = productSnap.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }))[0];
 

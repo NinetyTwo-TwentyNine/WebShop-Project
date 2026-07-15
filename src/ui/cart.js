@@ -5,10 +5,11 @@ import { offersApi } from "../api/offersApi.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { productsApi } from "../api/productsApi.js";
 import { initAuth, isAuthenticated, getCurrentUser } from "../state/authState.js";
-import { formatCents, applyDiscounts, tryFunction } from "../domain/utils.js";
+import { formatCents, applyDiscounts, tryFunction, filterOffersByProduct } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
+
 
 async function loadCart() {
   await initAuth();
@@ -49,14 +50,13 @@ async function renderCart(cart, allProducts, allUserOffers) {
   let total = 0;
 
   cart.items.forEach(item => {
-    const products = allProducts.filter(
-      product => Number(product.id) === Number(item.productId)
-    );
+    const products = allProducts.filter(product => Number(product.id) === Number(item.productId));
+
     if (products) {
       const product = products[0];
 
-      const globalOffers = offersApi.filterOffersByProduct(allUserOffers.globalOffers, product);
-      const personalOffers = offersApi.filterOffersByProduct(allUserOffers.personalOffers, product);
+      const globalOffers = filterOffersByProduct(allUserOffers.globalOffers, product);
+      const personalOffers = filterOffersByProduct(allUserOffers.personalOffers, product);
 
       const activatedPersonalOffers = personalOffers.filter(o => o.isActivated && !o.isUsed);
 
@@ -66,10 +66,7 @@ async function renderCart(cart, allProducts, allUserOffers) {
       ];
 
       // --- PRICE CALC ---
-      const discountedUnitPrice = applyDiscounts(
-        product.price,
-        allDiscounts
-      );
+      const discountedUnitPrice = applyDiscounts(product.price, allDiscounts);
       
       const itemTotal = discountedUnitPrice * item.quantity;
       total += itemTotal;
@@ -156,22 +153,22 @@ async function renderCart(cart, allProducts, allUserOffers) {
 
   totalPriceEl.textContent = formatCents(total);
 
-  async function clearBtnListener() {
+  clearBtn.onclick = async () => {
     activatePanel(false);
     let new_cart = cart;
     await tryFunction("Cart cleared.", "Failed to clear cart", async () => {
       new_cart = await cartApi.clearCart();
     });
-    // TODO: avoid rerendering loop
     renderCart(new_cart, allProducts, allUserOffers);
   }
-  clearBtn.addEventListener("click", clearBtnListener);
 
   purchaseBtn.onclick = async () => {
-    // TODO:
-    // 1. Apply offers
-    // 2. Call ordersApi.createOrder()
-    // 3. Clear cart
+    const userEmail = getCurrentUser()?.email;
+    let new_cart = cart, new_offers = allUserOffers, new_order = null;
+    await tryFunction("Order purchased.", "Failed to purchase", async () => {
+      ({cart: new_cart, new_order, allOffers: new_offers} = await ordersApi.createOrder(userEmail));
+    });
+    renderCart(new_cart, allProducts, new_offers);
   };
 
   activatePanel(true);
@@ -180,3 +177,5 @@ async function renderCart(cart, allProducts, allUserOffers) {
 document.addEventListener("DOMContentLoaded", () => {
   loadCart();
 });
+
+// TODO: fix discounted prices display

@@ -2,14 +2,15 @@ import { createNavbar } from "./layout/navbar.js";
 import { createFooter } from "./layout/footer.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { offersApi } from "../api/offersApi.js";
-import { calculateOrderPrice } from "../domain/utils.js";
-import { getOrderStatusLabel, ORDER_STATUS } from "../data/constants.js" 
+import { calculateOrderPrice, tryFunction, formatCents, getOrderStatusLabel } from "../domain/utils.js";
+import { ORDER_STATUS } from "../data/constants.js" 
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
-import { formatCents } from "../domain/utils.js";
-// import { orderState } from "../state/orderState.js";
+import { subscribeOrders } from "../state/orderState.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
+
+let currentOrders = [], globalOffers = [], personalOffers = [], userOfferLinks = [];
 
 async function loadProfile() {
   await initAuth();
@@ -19,18 +20,23 @@ async function loadProfile() {
   }
   const userEmail = getCurrentUser()?.email;
 
-  const [orders, offers] = await Promise.all([
+  let currentOffers;
+  [currentOrders, currentOffers] = await Promise.all([
     ordersApi.getUserOrders(userEmail),
     offersApi.getAllOffers(userEmail),
   ]);
+  globalOffers = currentOffers.globalOffers;
+  personalOffers = currentOffers.personalOffers;
+  userOfferLinks = currentOffers.userOfferLinks;
 
-  renderOrders(orders);
-  renderOffers(offers.personalOffers);
+  renderOrders(currentOrders);
+  renderOffers(personalOffers, userOfferLinks);
 }
 
 function renderOrders(orders) {
-  const ordersContainer = document.getElementById("ordersContainer");
+  currentOrders = orders;
 
+  const ordersContainer = document.getElementById("ordersContainer");
   ordersContainer.innerHTML = "";
 
   if (!orders || orders.length === 0) {
@@ -112,36 +118,38 @@ function bindOrderCardEvents(card, order) {
   const confirmBtn = card.querySelector(".confirm-receipt");
   if (confirmBtn) {
     confirmBtn.onclick = async () => {
-      // TODO:
-      // await ordersApi.confirmReceipt(order.id)
-      // orderState.update(order)
-      alert("Receipt confirmed (TODO)");
+      await ordersApi.confirmReceipt(order.id);
+      alert("Receipt confirmed.");
     };
   }
 }
 
 
-function renderOffers(offers) {
+function renderOffers(offers, links) {
   const offersContainer = document.getElementById("offersContainer");
 
   offersContainer.innerHTML = "";
 
-  if (!offers || offers.length === 0) {
+  if (!offers || offers.length === 0 || !links || links.length === 0) {
     offersContainer.innerHTML = `<p class="text-muted">No offers</p>`;
     return;
   }
 
   offers.forEach(offer => {
-    offersContainer.appendChild(renderOfferCard(offer));
+    const offerLink = links.find(l => l.offerId == offer.id);
+    if (!offerLink) {
+      return;
+    }
+    offersContainer.appendChild(renderOfferCard(offer, offerLink));
   });
 }
 
-function renderOfferCard(offer) {
+function renderOfferCard(offer, offerLink) {
   const div = document.createElement("div");
   div.className = "card mb-2";
 
-  const isUsed = offer.isUsed;
-  const isActivated = offer.isActivated;
+  const isUsed = offerLink.isUsed;
+  const isActivated = offerLink.isActivated;
 
   div.classList.toggle("opacity-50", isUsed);
 
@@ -176,19 +184,28 @@ function renderOfferCard(offer) {
   if (!isUsed && !isActivated) {
     const btn = div.querySelector(".activate-offer");
     btn.onclick = async () => {
-      // TODO:
-      // await offersApi.activateOffer(offer.offerId)
-      // offerState.update(...)
-      alert("Offer activated (TODO)");
+      const offerToActivate = await tryFunction("Offer activated", "Failed to activate offer", async () => {
+        return await offersApi.activateOffer(getCurrentUser().email, offer.id);
+      });
+      if (offerToActivate) {
+        for (let i = 0; i < userOfferLinks.length; i++) {
+          if (userOfferLinks[i].offerId === offerToActivate.offerId) {
+            userOfferLinks[i] = offerToActivate;
+            break;
+          }
+        }
+      }
+      renderOffers(personalOffers, userOfferLinks);
     };
   }
 
   return div;
 }
 
-// TODO:
-// orderState.subscribe(renderOrders)
-
 document.addEventListener("DOMContentLoaded", () => {
   loadProfile();
+  subscribeOrders(renderOrders);
 });
+
+// TODO: fix the order received button
+// TODO: show if the offer is activated

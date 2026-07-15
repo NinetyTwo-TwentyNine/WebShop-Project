@@ -28,7 +28,7 @@ export const cartApi = {
     const snapshot = await getDocs(collection(db, DB_COLLECTION_NAME_CARTS));
 
     return snapshot.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }));
   },
@@ -52,13 +52,13 @@ export const cartApi = {
       return newCart;
     }
 
-    const cart = { id: snap.docs[0].id, ...snap.docs[0].data() };
+    const cart = { docId: snap.docs[0].id, ...snap.docs[0].data() };
 
     const itemsSnap = await getDocs(
       query(collection(db, DB_COLLECTION_NAME_CARTITEMS), where("cartId", "==", cart.id))
     );
 
-    cart.items = itemsSnap.docs.map(d => ({ id: d.id, ...d.data() }));
+    cart.items = itemsSnap.docs.map(d => ({ docId: d.id, ...d.data() }));
     current_user_cart = cart;
     return cart;
   },
@@ -106,7 +106,7 @@ export const cartApi = {
     }
 
     const cartItem = snap.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }))[0];
     const new_quantity = cartItem.quantity + quantity_change;
@@ -141,7 +141,7 @@ export const cartApi = {
     }
 
     const cartItem = itemSnap.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }))[0];
 

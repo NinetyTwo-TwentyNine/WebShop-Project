@@ -1,6 +1,7 @@
 import { auth } from "../../config/firebaseClient.js"
 import { isAuthenticated, subscribeAuth } from "../../state/authState.js";
 import { signOut } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+import { APP_NAME_MAIN } from "../../data/constants.js";
 
 export function createNavbar() {
   const nav = document.createElement("nav");
@@ -8,7 +9,7 @@ export function createNavbar() {
 
   nav.innerHTML = `
     <div class="container">
-      <span class="navbar-brand">PyShop</span>
+      <span class="navbar-brand">${APP_NAME_MAIN}</span>
       <div class="navbar-nav ms-auto" id="nav-links"></div>
     </div>
   `;

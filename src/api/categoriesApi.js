@@ -8,7 +8,7 @@ export const categoriesApi = {
     const snapshot = await getDocs(collection(db, DB_COLLECTION_NAME_CATEGORIES));
 
     return snapshot.docs.map(doc => ({
-      id: doc.id,
+      docId: doc.id,
       ...doc.data()
     }));
   }

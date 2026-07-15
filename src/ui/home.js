@@ -5,6 +5,7 @@ import { createProductCard } from "./components/productCard.js";
 import { productsApi } from "../api/productsApi.js";
 import { categoriesApi } from "../api/categoriesApi.js";
 import { initAuth } from "../state/authState.js";
+import { APP_NAME_MAIN } from "../data/constants.js";
 
 document.getElementById("navbar-root").append(createNavbar());
 document.getElementById("footer-root").append(createFooter());
@@ -29,7 +30,7 @@ function renderCategories(categories) {
     btn.className = "btn btn-outline-primary me-2 mb-2";
     btn.textContent = cat.name;
 
-    // navigation logic later
+    // TODO: navigation logic later
     container.appendChild(btn);
   });
 }
@@ -47,5 +48,6 @@ function renderFeaturedProducts(products) {
 }
 
 document.addEventListener("DOMContentLoaded", () => {
+  document.title = `${APP_NAME_MAIN} – Home`;
   loadHomePage();
 });

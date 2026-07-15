@@ -1,3 +1,5 @@
+export const APP_NAME_MAIN = "WebShop"
+
 export const PASSWORD_LENGTH_MIN = 8;
 
 export const ORDER_STATUS = {
@@ -8,10 +10,12 @@ export const ORDER_STATUS = {
     CANCELED: 4
 };
 
-export function getOrderStatusLabel(status) {
-  return Object.keys(ORDER_STATUS)
-    .find(key => ORDER_STATUS[key] === status) ?? "UNKNOWN";
-}
+export const ORDER_TRANSITION_TIME = {
+    CREATED: 60_000,
+    SHIPPED: 60_000
+};
+
+export const ORDER_SYNC_INTERVAL = 30000;
 
 
 export const DB_COLLECTION_NAME_CARTS = "carts";

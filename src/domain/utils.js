@@ -2,6 +2,8 @@
 // Domain (api) emulation
 // =================================
 
+import { ORDER_STATUS, ORDER_TRANSITION_TIME } from "../data/constants.js";
+
 export function pickRandomProductPerCategory(products) {
   const byCategory = new Map();
 
@@ -45,8 +47,124 @@ export async function createNewUserCart(userEmail, allCarts) {
 
 export function applyDiscounts(basePriceCents, offers = []) {
   return offers.reduce((price, offer) => {
-    return Math.round(price * (100 - offer.discountPercent) / 100);
+    if (!offer.isActive || offer.isUsed) {
+      return price;
+    } else {
+      return Math.round(price * (100 - offer.discountPercent) / 100);
+    }
   }, basePriceCents);
+}
+
+export function applyOffers(orderItems = [], productList = [], offers = [], offerLinks = []) {
+  const offersToDeactivate = [];
+
+  orderItems.forEach(item => {
+    const product = productList.find(p => p.id === item.productId);
+    if (!product) {
+      throw Error(`Product ${item.productId} referenced by an order item was not found.`);
+    }
+    const applicableOffers = filterOffersByProduct(offers, product), offersToApply = [];
+    applicableOffers.forEach(offer => {
+      const offerLink = offerLinks.find(l => l.offerId === offer.id);
+      if (!offer.isGlobal && !offerLink) {
+        throw Error("No user link found for a personal offer (applyOffers).");
+      }
+      else if (offer.isGlobal || (offerLink.isActivated && !offerLink.isUsed)) {
+        offersToApply.push(offer);
+        if (!offer.isGlobal && !offersToDeactivate.includes(offerLink)) {
+          offersToDeactivate.push(offerLink);
+        }
+      }
+    });
+
+    item.productPrice = applyDiscounts(product.price, offersToApply);
+  });
+
+  offersToDeactivate.forEach(l => {
+    l.isUsed = true;
+    l.isActivated = false;
+  })
+}
+
+export function filterOffersByProduct(offers, product) {
+  return offers.filter(o => {
+    if (o.isEntireCategory) {
+      return o.affectedId === product.categoryId;
+    }
+    return o.affectedId === product.id;
+  });
+}
+
+export function divideOffers(allOffers, userEmail, userOfferSnap) {
+  const globalOffers = allOffers.filter(o => o.isGlobal);
+
+  let userOffers = [], userOfferLinks = [];
+  if (userEmail) {
+    const userOfferIds = userOfferSnap.docs.map(d => d.data().offerId);
+    userOffers = allOffers.filter(o => userOfferIds.includes(o.id));
+
+    const actualOfferIds = userOffers.map(o => o.id);
+    userOfferLinks = userOfferSnap.docs.map(d => ({docId: d.id, ...d.data()})).filter(l => actualOfferIds.includes(l.offerId));
+  }
+
+  return {
+    globalOffers: globalOffers,
+    personalOffers: userOffers,
+    userOfferLinks: userOfferLinks
+  };
+}
+
+export function getNextOrderStatus(status) {
+  switch (status) {
+    case ORDER_STATUS.CREATED:
+        return ORDER_STATUS.SHIPPED;
+    case ORDER_STATUS.SHIPPED:
+        return ORDER_STATUS.DELIVERED;
+    case ORDER_STATUS.DELIVERED:
+        return ORDER_STATUS.RECEIVED;
+    default:
+      return status;
+  }
+}
+
+export function getTransitionDuration(status) {
+  return ORDER_TRANSITION_TIME[status] ?? 0;
+}
+
+export function shouldAdvanceOrder(order, currentTime) {
+  return !isOrderFinished(order) && Number(order.updatedAt) <= currentTime;
+}
+
+export function isOrderFinished(order) {
+  return order.status === ORDER_STATUS.RECEIVED || order.status === ORDER_STATUS.CANCELLED;
+}
+
+export function advanceOrder(order) {
+  const nextStatus = getNextOrderStatus(order.status);
+
+  if (nextStatus === order.status)
+    return order;
+  order.status = nextStatus;
+
+  if (!isOrderFinished(order)) {
+    order.updatedAt = Number(order.updatedAt) + getTransitionDuration(order.status);
+  }
+
+  return order;
+}
+
+export function cancelOrder(order) {
+  order.status = ORDER_STATUS.CANCELLED;
+
+  return order;
+}
+
+export function confirmReceipt(order) {
+  if (order.status === ORDER_STATUS.DELIVERED) {
+    order.status = ORDER_STATUS.RECEIVED;
+  }
+
+  return order;
 }
 
 // =================================
@@ -71,15 +189,56 @@ export function formatCents(cents) {
   return (cents / 100).toFixed(2);
 }
 
+export function createOrderObject(id, userEmail) {
+  const now = Date.now();
+
+  return {id, userEmail, status: ORDER_STATUS.CREATED, createdAt: now, updatedAt: now + getTransitionDuration(ORDER_STATUS.CREATED)};
+}
+
+export function getUniqueId(objectList)
+{
+  if (!objectList || objectList.size === 0) {
+    return 1;
+  }
+
+  const usedIds = new Set();
+  for (const obj of objectList) {
+    usedIds.add(obj.id);
+  }
+
+  let id = 1;
+  while (usedIds.has(id)) {
+    id++;
+  }
+  return id;
+}
+
+export function uploadFilter(initialObject) {
+  if (!initialObject) return null;
+
+  const objectClone = structuredClone(initialObject);
+  if ("docId" in objectClone) {
+    delete objectClone.docId;
+  }
+  return objectClone;
+}
+
 export async function tryFunction(successMessage, failureMessage, func) {
   try {
     const result = await func();
     if (successMessage != null && successMessage != "") {
       alert(successMessage);
     }
+    return result;
   } catch (error) {
     if (failureMessage != null && failureMessage != "") {
       alert(`${failureMessage}: ${error.message}`);
     }
+    return null;
   }
+}
+
+export function getOrderStatusLabel(status) {
+  return Object.keys(ORDER_STATUS)
+    .find(key => ORDER_STATUS[key] === status) ?? "UNKNOWN";
 }

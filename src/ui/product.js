@@ -29,12 +29,17 @@ async function loadProduct() {
     return;
   }
 
-  const userEmail = getCurrentUser()?.email;
-  const [offers, _] = await Promise.all([
-    offersApi.getApplicableOffers(product, userEmail),
-    cartApi.initializeUserCart(userEmail)
-  ]);
-  renderProduct(product, offers);
+  if (isAuthenticated()) {
+    const userEmail = getCurrentUser()?.email;
+    const [offers, _] = await Promise.all([
+      offersApi.getApplicableOffers(product, userEmail),
+      cartApi.initializeUserCart(userEmail)
+    ]);
+    renderProduct(product, offers);
+  }
+  else {
+    renderProduct(product, []);
+  }
 }
 
 function renderProduct(product, offers) {
@@ -177,3 +182,5 @@ function bindProductActions(product, offers) {
 document.addEventListener("DOMContentLoaded", () => {
   loadProduct();
 });
+
+// TODO: fix discounted prices display
