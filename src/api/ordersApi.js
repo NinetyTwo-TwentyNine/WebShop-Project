@@ -83,7 +83,6 @@ export const ordersApi = {
     await Promise.all([
       addDoc(collection(db, DB_COLLECTION_NAME_ORDERS), new_order),
       new_order_items.map(async (order_item) => {
-        delete order_item.productId;
         return addDoc(collection(db, DB_COLLECTION_NAME_ORDERITEMS), order_item);
       }),
       userOfferLinks.map(async (offer_link) => {
@@ -99,10 +98,10 @@ export const ordersApi = {
   },
 
   async advanceOrder(orderId) {
-    const ordersSnap = await getDocs(query(
-      collection(db, DB_COLLECTION_NAME_ORDERS),
-      where("id", "==", orderId),
-    ));
+    const [ordersSnap, itemsSnap] = await Promise.all([
+      getDocs(query(collection(db, DB_COLLECTION_NAME_ORDERS), where("id", "==", orderId))),
+      getDocs(collection(db, DB_COLLECTION_NAME_ORDERITEMS)),
+    ]);
     if (ordersSnap.empty) {
       throw new Error(`No order found according to this ID (${orderId}).`);
     }
@@ -114,14 +113,22 @@ export const ordersApi = {
     advanceOrder(order);
 
     await updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order));
+    
+    const orderItems = itemsSnap.docs.map(doc => ({
+      docId: doc.id,
+      ...doc.data()
+    }));
+    order.items = orderItems.filter(
+      item => item.orderId === order.id
+    );
     return order;
   },
 
   async confirmReceipt(orderId) {
-    const ordersSnap = await getDocs(query(
-      collection(db, DB_COLLECTION_NAME_ORDERS),
-      where("id", "==", orderId),
-    ));
+    const [ordersSnap, itemsSnap] = await Promise.all([
+      getDocs(query(collection(db, DB_COLLECTION_NAME_ORDERS), where("id", "==", orderId))),
+      getDocs(collection(db, DB_COLLECTION_NAME_ORDERITEMS)),
+    ]);
     if (ordersSnap.empty) {
       throw new Error(`No order found according to this ID (${orderId}).`);
     }
@@ -133,6 +140,14 @@ export const ordersApi = {
     confirmReceipt(order);
 
     await updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order));
+
+    const orderItems = itemsSnap.docs.map(doc => ({
+      docId: doc.id,
+      ...doc.data()
+    }));
+    order.items = orderItems.filter(
+      item => item.orderId === order.id
+    );
     return order;
   }
 }

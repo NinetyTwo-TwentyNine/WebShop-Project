@@ -59,10 +59,14 @@ export function applyOffers(orderItems = [], productList = [], offers = [], offe
   const offersToDeactivate = [];
 
   orderItems.forEach(item => {
+    if (!item.productId) {
+      throw Error(`Supplied order item doesn't have productId (applyOffers).`);
+    }
     const product = productList.find(p => p.id === item.productId);
     if (!product) {
       throw Error(`Product ${item.productId} referenced by an order item was not found.`);
     }
+
     const applicableOffers = filterOffersByProduct(offers, product), offersToApply = [];
     applicableOffers.forEach(offer => {
       const offerLink = offerLinks.find(l => l.offerId === offer.id);
@@ -78,6 +82,7 @@ export function applyOffers(orderItems = [], productList = [], offers = [], offe
     });
 
     item.productPrice = applyDiscounts(product.price, offersToApply);
+    delete item.productId;
   });
 
   offersToDeactivate.forEach(l => {
@@ -136,7 +141,7 @@ export function shouldAdvanceOrder(order, currentTime) {
 }
 
 export function isOrderFinished(order) {
-  return order.status === ORDER_STATUS.RECEIVED || order.status === ORDER_STATUS.CANCELLED;
+  return order.status === ORDER_STATUS.DELIVERED || order.status === ORDER_STATUS.CANCELLED;
 }
 
 export function advanceOrder(order) {

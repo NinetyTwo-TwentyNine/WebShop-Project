@@ -2,6 +2,8 @@ export const APP_NAME_MAIN = "WebShop"
 
 export const PASSWORD_LENGTH_MIN = 8;
 
+export const PRODUCTS_PAGE_SIZE = 12;
+
 export const ORDER_STATUS = {
     CREATED: 0,
     SHIPPED: 1,
@@ -11,8 +13,8 @@ export const ORDER_STATUS = {
 };
 
 export const ORDER_TRANSITION_TIME = {
-    CREATED: 60_000,
-    SHIPPED: 60_000
+  [ORDER_STATUS.CREATED]: 60_000,
+  [ORDER_STATUS.SHIPPED]: 60_000,
 };
 
 export const ORDER_SYNC_INTERVAL = 30000;

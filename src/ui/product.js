@@ -31,7 +31,7 @@ async function loadProduct() {
 
   if (isAuthenticated()) {
     const userEmail = getCurrentUser()?.email;
-    const [offers, _] = await Promise.all([
+    const [offers,] = await Promise.all([
       offersApi.getApplicableOffers(product, userEmail),
       cartApi.initializeUserCart(userEmail)
     ]);
@@ -182,5 +182,3 @@ function bindProductActions(product, offers) {
 document.addEventListener("DOMContentLoaded", () => {
   loadProduct();
 });
-
-// TODO: fix discounted prices display

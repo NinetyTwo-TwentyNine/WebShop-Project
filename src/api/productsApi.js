@@ -67,3 +67,5 @@ export const productsApi = {
     return pickRandomProductPerCategory(products);
   }
 };
+
+// TODO: implement the 'getFilteredProducts' method.

@@ -2,10 +2,10 @@ import { createNavbar } from "./layout/navbar.js";
 import { createFooter } from "./layout/footer.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { offersApi } from "../api/offersApi.js";
-import { calculateOrderPrice, tryFunction, formatCents, getOrderStatusLabel } from "../domain/utils.js";
+import { calculateOrderPrice, tryFunction, formatCents, getOrderStatusLabel, advanceOrder } from "../domain/utils.js";
 import { ORDER_STATUS } from "../data/constants.js" 
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
-import { subscribeOrders } from "../state/orderState.js";
+import { startOrderSync, subscribeOrders } from "../state/orderState.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -20,17 +20,13 @@ async function loadProfile() {
   }
   const userEmail = getCurrentUser()?.email;
 
-  let currentOffers;
-  [currentOrders, currentOffers] = await Promise.all([
-    ordersApi.getUserOrders(userEmail),
+  [{personalOffers, globalOffers, userOfferLinks},] = await Promise.all([
     offersApi.getAllOffers(userEmail),
+    startOrderSync(userEmail)
   ]);
-  globalOffers = currentOffers.globalOffers;
-  personalOffers = currentOffers.personalOffers;
-  userOfferLinks = currentOffers.userOfferLinks;
 
-  renderOrders(currentOrders);
   renderOffers(personalOffers, userOfferLinks);
+  subscribeOrders(renderOrders);
 }
 
 function renderOrders(orders) {
@@ -120,6 +116,8 @@ function bindOrderCardEvents(card, order) {
     confirmBtn.onclick = async () => {
       await ordersApi.confirmReceipt(order.id);
       alert("Receipt confirmed.");
+      advanceOrder(order);
+      renderOrders(currentOrders);
     };
   }
 }
@@ -204,8 +202,8 @@ function renderOfferCard(offer, offerLink) {
 
 document.addEventListener("DOMContentLoaded", () => {
   loadProfile();
-  subscribeOrders(renderOrders);
 });
 
-// TODO: fix the order received button
-// TODO: show if the offer is activated
+// TODO: add an option to delete completed orders and applied offers
+// TODO: add a button to cancel orders
+// TODO: fix order descriptions being closed on order update

@@ -58,7 +58,8 @@ async function renderCart(cart, allProducts, allUserOffers) {
       const globalOffers = filterOffersByProduct(allUserOffers.globalOffers, product);
       const personalOffers = filterOffersByProduct(allUserOffers.personalOffers, product);
 
-      const activatedPersonalOffers = personalOffers.filter(o => o.isActivated && !o.isUsed);
+      const activatedOfferIds = allUserOffers.userOfferLinks.filter(l => l.isActivated && !l.isUsed).map(l => l.offerId);
+      const activatedPersonalOffers = personalOffers.filter(o => activatedOfferIds.includes(o.id));
 
       const allDiscounts = [
         ...globalOffers,
@@ -164,9 +165,9 @@ async function renderCart(cart, allProducts, allUserOffers) {
 
   purchaseBtn.onclick = async () => {
     const userEmail = getCurrentUser()?.email;
-    let new_cart = cart, new_offers = allUserOffers, new_order = null;
+    let new_cart = cart, new_offers = allUserOffers;
     await tryFunction("Order purchased.", "Failed to purchase", async () => {
-      ({cart: new_cart, new_order, allOffers: new_offers} = await ordersApi.createOrder(userEmail));
+      ({cart: new_cart, allOffers: new_offers,} = await ordersApi.createOrder(userEmail));
     });
     renderCart(new_cart, allProducts, new_offers);
   };
@@ -177,5 +178,3 @@ async function renderCart(cart, allProducts, allUserOffers) {
 document.addEventListener("DOMContentLoaded", () => {
   loadCart();
 });
-
-// TODO: fix discounted prices display

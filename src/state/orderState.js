@@ -1,4 +1,5 @@
 import { ordersApi } from "../api/ordersApi.js";
+import { ORDER_SYNC_INTERVAL } from "../data/constants.js";
 
 let currentOrders = [];
 
@@ -25,14 +26,11 @@ export function unsubscribeOrders(listener) {
   listeners.delete(listener);
 }
 
-function notify() {
-  listeners.forEach(listener => listener(currentOrders));
-}
 
-
-export function startOrderSync(userEmail) {
+export async function startOrderSync(userEmail) {
   currentUserEmail = userEmail;
 
+  await syncOrders();
   if (timerId)
     return;
   timerId = setInterval(syncOrders, ORDER_SYNC_INTERVAL);
@@ -47,6 +45,10 @@ export function stopOrderSync() {
   currentUserEmail = null;
 }
 
+
+function notify() {
+  listeners.forEach(listener => listener(currentOrders));
+}
 
 async function syncOrders() {
   if (!currentUserEmail)
