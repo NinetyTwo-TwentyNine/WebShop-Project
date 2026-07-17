@@ -51,3 +51,5 @@ document.addEventListener("DOMContentLoaded", () => {
   document.title = `${APP_NAME_MAIN} – Home`;
   loadHomePage();
 });
+
+// TODO: fix category alignment

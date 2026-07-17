@@ -18,64 +18,64 @@
     <div class="row mb-4">
 
         <div class="col-md-4">
-            <label class="form-label">Search</label>
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase text-secondary fw-semibold mb-3">
+                        Search
+                    </h6>
 
-            <div class="input-group">
-                <input
-                        id="searchInput"
-                        class="form-control"
-                        placeholder="Search..."
-                >
+                    <div class="input-group">
+                        <input
+                            id="searchInput"
+                            class="form-control"
+                            placeholder="Type..."
+                        >
 
-                <button
-                        id="searchBtn"
-                        class="btn btn-primary">
-                    Search
-                </button>
+                        <button
+                            id="searchBtn"
+                            class="btn btn-primary">
+                            🔍️
+                        </button>
+                    </div>
+                </div>
             </div>
         </div>
 
         <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase text-secondary fw-semibold mb-3">
+                        Categories
+                    </h6>
 
-            <label class="form-label">
-                Categories
-            </label>
-
-            <div id="categoryFilter"></div>
-
+                    <div id="categoryFilter"></div>
+                </div>
+            </div>
         </div>
 
         <div class="col-md-4">
+            <div class="card h-100 shadow-sm">
+                <div class="card-body">
+                    <h6 class="card-title text-uppercase text-secondary fw-semibold mb-3">
+                        Sort
+                    </h6>
 
-            <label class="form-label">
-                Sort
-            </label>
+                    <select
+                            id="sortSelect"
+                            class="form-select">
 
-            <select
-                    id="sortSelect"
-                    class="form-select">
+                        <option value="newest">Newest</option>
+                        <option value="oldest">Oldest</option>
 
-                <option value="newest">Newest</option>
-                <option value="oldest">Oldest</option>
+                        <option value="priceAsc">Price ↑</option>
+                        <option value="priceDesc">Price ↓</option>
 
-                <option value="priceAsc">
-                    Price ↑
-                </option>
+                        <option value="nameAsc">Name A-Z</option>
+                        <option value="nameDesc">Name Z-A</option>
 
-                <option value="priceDesc">
-                    Price ↓
-                </option>
-
-                <option value="nameAsc">
-                    Name A-Z
-                </option>
-
-                <option value="nameDesc">
-                    Name Z-A
-                </option>
-
-            </select>
-
+                    </select>
+                </div>
+            </div>
         </div>
 
     </div>

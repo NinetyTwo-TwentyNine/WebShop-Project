@@ -24,6 +24,7 @@ export const offersApi = {
         where("isGlobal", "==", false)
       )
     );
+
     const userOffersQuery = query(
       collection(db, DB_COLLECTION_NAME_USEROFFERS),
       where("userEmail", "==", userEmail),
@@ -35,12 +36,12 @@ export const offersApi = {
       getDocs(userOffersQuery),
     ]);
 
-    return { offersSnapshop: snapshot, userOffersSnapshot: userOfferSnap };
+    return { offersSnapshot: snapshot, userOffersSnapshot: userOfferSnap };
   },
 
   async getApplicableOffers(product, userEmail) {
     const userOfferData = await this.downloadUserOffers(userEmail);
-    const snapshot = userOfferData.offersSnapshop, userOfferSnap = userOfferData.userOffersSnapshot;
+    const snapshot = userOfferData.offersSnapshot, userOfferSnap = userOfferData.userOffersSnapshot;
 
     const allOffers = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
     const matchingOffers = filterOffersByProduct(allOffers, product);
@@ -49,9 +50,24 @@ export const offersApi = {
     return finalData;
   },
 
+  async getApplicableOffersMap(products, userEmail) {
+    const userOfferData = await this.downloadUserOffers(userEmail);
+    const snapshot = userOfferData.offersSnapshot, userOfferSnap = userOfferData.userOffersSnapshot;
+
+    const allOffers = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
+
+    const result = new Map();
+    for (const product of products) {
+      const matchingOffers = filterOffersByProduct(allOffers, product);
+      result.set(product.id, divideOffers(matchingOffers, userEmail, userOfferSnap));
+    }
+
+    return result;
+  },
+
   async getAllOffers(userEmail) {
     const userOfferData = await this.downloadUserOffers(userEmail);
-    const snapshot = userOfferData.offersSnapshop, userOfferSnap = userOfferData.userOffersSnapshot;
+    const snapshot = userOfferData.offersSnapshot, userOfferSnap = userOfferData.userOffersSnapshot;
 
     const allOffers = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
 

@@ -4,7 +4,7 @@ import { productsApi } from "../api/productsApi.js";
 import { offersApi } from "../api/offersApi.js";
 import { cartApi } from "../api/cartApi.js";
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
-import { formatCents, tryFunction } from "../domain/utils.js";
+import { applyDiscounts, formatCents, getAvailableUserOffers, tryFunction } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -35,11 +35,24 @@ async function loadProduct() {
       offersApi.getApplicableOffers(product, userEmail),
       cartApi.initializeUserCart(userEmail)
     ]);
-    renderProduct(product, offers);
+
+    const activePersonal = getAvailableUserOffers(offers, true);
+    const availablePersonal = getAvailableUserOffers(offers, false);
+
+    const activeOffers = [...offers.globalOffers, ...activePersonal];
+    const discountedPrice = applyDiscounts(product.price, activeOffers);
+
+    renderProduct(product, {...offers, activePersonal, availablePersonal, discountedPrice});
+  } else {
+    const offers = await offersApi.getApplicableOffers(product, "");
+
+    const activeOffers = offers.globalOffers;
+    const discountedPrice = applyDiscounts(product.price, activeOffers);
+
+    renderProduct(product, {...offers, activePersonal: [], availablePersonal: [], discountedPrice});
   }
-  else {
-    renderProduct(product, []);
-  }
+
+  bindAllOfferActions();
 }
 
 function renderProduct(product, offers) {
@@ -50,10 +63,10 @@ function renderProduct(product, offers) {
         ${renderProductImage(product)}
       </div>
       <div class="col-md-7">
-        ${renderProductInfo(product)}
+        ${renderProductInfo(product, offers)}
         ${renderAddToCartButton(product)}
         <hr />
-        ${renderOffersSection(offers.globalOffers, offers.personalOffers)}
+        ${renderOffersSection(offers)}
       </div>
     </div>
   `;
@@ -71,19 +84,70 @@ function renderProductImage(product) {
   `;
 }
 
-function renderProductInfo(product) {
+function renderProductInfo(product, offers) {
   return `
     <h3>${product.title}</h3>
-    <p class="text-muted">${product.description}</p>
-    <p><strong>Price:</strong> $${formatCents(product.price)}</p>
+
+    <p class="text-muted">
+      ${product.description}
+    </p>
+
+    ${renderPriceSection(product.price, offers.discountedPrice)}
+    ${renderOfferSummary(offers.globalOffers.length, offers.activePersonal.length, offers.availablePersonal.length)}
+
     <p>
-      <strong>Stock:</strong> 
-      <span class="${product.stock === 0 ? "text-danger" : ""}">
-        ${product.stock}
-      </span>
+      <strong>Stock:</strong>
+        <span class="${product.stock === 0 ? "text-danger" : ""}">
+          ${product.stock}
+        </span>
     </p>
   `;
 }
+
+function renderPriceSection(originalPrice, finalPrice) {
+  if (originalPrice === finalPrice) {
+    return `
+      <p class="mb-1">
+        <strong>$${formatCents(originalPrice)}</strong>
+      </p>
+    `;
+  }
+
+  return `
+    <p class="mb-1">
+      <span class="text-decoration-line-through text-muted">
+        $${formatCents(originalPrice)}
+      </span>
+
+      <strong class="text-success ms-2">
+        $${formatCents(finalPrice)}
+      </strong>
+    </p>
+  `;
+}
+
+function renderOfferSummary(globalCount, personalCount, availableCount) {
+  if (globalCount === 0 && personalCount === 0 && availableCount === 0) {
+    return "";
+  }
+
+  return `
+    <small class="text-muted d-block">
+      Active:
+      ${globalCount} general,
+      ${personalCount} personal
+    </small>
+
+    ${availableCount > 0 ? `
+      <small class="text-primary d-block">
+        Available:
+        ${availableCount}
+      </small>
+    `
+    : ""}
+  `;
+}
+
 
 function renderAddToCartButton(product) {
   const disabled = product.stock === 0 ? "disabled" : "";
@@ -99,7 +163,10 @@ function renderAddToCartButton(product) {
   `;
 }
 
-function renderOffersSection(globalOffers = [], personalOffers = []) {
+function renderOffersSection(offers) {
+  const globalOffers = offers.globalOffers, activePersonal = getAvailableUserOffers(offers, true), availablePersonal = getAvailableUserOffers(offers, false);
+  const personalOffers = [...activePersonal, ...availablePersonal];
+
   if (globalOffers.length === 0 && personalOffers.length === 0) {
     return `
       <h5>Available offers</h5>
@@ -114,7 +181,7 @@ function renderOffersSection(globalOffers = [], personalOffers = []) {
       <div class="mb-3">
         <div class="fw-semibold mb-1">Global offers</div>
         <ul class="list-group">
-          ${globalOffers.map(o => renderOfferItem(o, false)).join("")}
+          ${globalOffers.map(o => renderOfferItem(o, 'global')).join("")}
         </ul>
       </div>
     ` : ""}
@@ -123,14 +190,14 @@ function renderOffersSection(globalOffers = [], personalOffers = []) {
       <div>
         <div class="fw-semibold mb-1">Personal offers</div>
         <ul class="list-group">
-          ${personalOffers.map(o => renderOfferItem(o, true)).join("")}
+          ${personalOffers.map(o => renderOfferItem(o, activePersonal.includes(o) ? 'active': 'available')).join("")}
         </ul>
       </div>
     ` : ""}
   `;
 }
 
-function renderOfferItem(offer, isPersonal) {
+function renderOfferItem(offer, mode) {
   return `
     <li class="list-group-item d-flex justify-content-between align-items-center">
       <div>
@@ -144,12 +211,27 @@ function renderOfferItem(offer, isPersonal) {
         </span>
 
         ${
-          isPersonal
-            ? `<a href="./profile.html" class="btn btn-sm btn-outline-primary">
-                 View in profile
-               </a>`
-            : `<span class="badge bg-secondary">Auto-applied</span>`
+          (() => {
+            switch (mode) {
+              case 'global':
+                return  `<span class="badge bg-secondary">
+                          Auto applied
+                        </span>`;
+              case 'active':
+                return   `<span class="badge bg-success">
+                          Activated
+                        </span>`;
+              case 'available':
+                return  `<button
+                          class="btn btn-sm btn-outline-primary activate-offer" data-id="${offer.id}">
+                          Activate
+                        </button>`;
+              default:
+                return ``;
+            }
+          })()
         }
+
       </div>
     </li>
   `;
@@ -177,6 +259,17 @@ function bindProductActions(product, offers) {
     renderProduct(new_product, new_offers);
   };
   addBtn.disabled = false;
+}
+
+function bindAllOfferActions() {
+  document.querySelectorAll(".activate-offer").forEach(button => {
+    button.onclick = async () => {
+      await tryFunction("Offer activated.", "Failed to activate offer.", async () => {
+        await offersApi.activateOffer(getCurrentUser().email, Number(button.dataset.id));
+        loadProduct();
+      });
+    };
+  });
 }
 
 document.addEventListener("DOMContentLoaded", () => {

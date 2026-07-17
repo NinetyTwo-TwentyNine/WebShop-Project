@@ -205,5 +205,5 @@ document.addEventListener("DOMContentLoaded", () => {
 });
 
 // TODO: add an option to delete completed orders and applied offers
-// TODO: add a button to cancel orders
+// TODO: add buttons to cancel orders and turn off activated offers
 // TODO: fix order descriptions being closed on order update

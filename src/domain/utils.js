@@ -2,7 +2,7 @@
 // Domain (api) emulation
 // =================================
 
-import { ORDER_STATUS, ORDER_TRANSITION_TIME } from "../data/constants.js";
+import { ORDER_STATUS, ORDER_STATUS_NEW_DAY_COUNT, ORDER_TRANSITION_TIME } from "../data/constants.js";
 
 export function pickRandomProductPerCategory(products) {
   const byCategory = new Map();
@@ -119,6 +119,12 @@ export function divideOffers(allOffers, userEmail, userOfferSnap) {
   };
 }
 
+export function createOrderObject(id, userEmail) {
+  const now = Date.now();
+
+  return {id, userEmail, status: ORDER_STATUS.CREATED, createdAt: now, updatedAt: now + getTransitionDuration(ORDER_STATUS.CREATED)};
+}
+
 export function getNextOrderStatus(status) {
   switch (status) {
     case ORDER_STATUS.CREATED:
@@ -194,10 +200,19 @@ export function formatCents(cents) {
   return (cents / 100).toFixed(2);
 }
 
-export function createOrderObject(id, userEmail) {
-  const now = Date.now();
+export function isProductNew(product, currentTime) {
+  return (currentTime - product.createdAt) < ORDER_STATUS_NEW_DAY_COUNT * 24 * 60 * 60 * 1000;
+}
 
-  return {id, userEmail, status: ORDER_STATUS.CREATED, createdAt: now, updatedAt: now + getTransitionDuration(ORDER_STATUS.CREATED)};
+export function getAvailableUserOffers(offers, activated) {
+  if (!offers || !offers.personalOffers || !offers.userOfferLinks) {
+    throw new Error("Supplied with malformed offers object (getAvailableUserOffers).");
+  }
+
+  return offers.personalOffers.filter(o => {
+    const link = offers.userOfferLinks.find(l => l.offerId === o.id);
+    return link && (link.isActivated == activated)  && !link.isUsed;
+  });
 }
 
 export function getUniqueId(objectList)
