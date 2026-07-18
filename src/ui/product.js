@@ -29,33 +29,30 @@ async function loadProduct() {
     return;
   }
 
+  let offers;
   if (isAuthenticated()) {
     const userEmail = getCurrentUser()?.email;
-    const [offers,] = await Promise.all([
+    [offers,] = await Promise.all([
       offersApi.getApplicableOffers(product, userEmail),
       cartApi.initializeUserCart(userEmail)
     ]);
-
-    const activePersonal = getAvailableUserOffers(offers, true);
-    const availablePersonal = getAvailableUserOffers(offers, false);
-
-    const activeOffers = [...offers.globalOffers, ...activePersonal];
-    const discountedPrice = applyDiscounts(product.price, activeOffers);
-
-    renderProduct(product, {...offers, activePersonal, availablePersonal, discountedPrice});
   } else {
-    const offers = await offersApi.getApplicableOffers(product, "");
-
-    const activeOffers = offers.globalOffers;
-    const discountedPrice = applyDiscounts(product.price, activeOffers);
-
-    renderProduct(product, {...offers, activePersonal: [], availablePersonal: [], discountedPrice});
+    offers = await offersApi.getApplicableOffers(product, "");
   }
+  renderProduct(product, offers);
 
   bindAllOfferActions();
 }
 
 function renderProduct(product, offers) {
+  const activePersonal = getAvailableUserOffers(offers, true);
+  const availablePersonal = getAvailableUserOffers(offers, false);
+
+  const activeOffers = [...offers.globalOffers, ...activePersonal];
+  const discountedPrice = applyDiscounts(product.price, activeOffers);
+
+  const offersInfo = {globalOffers: offers.globalOffers, activePersonal, availablePersonal, discountedPrice};
+
   const container = document.getElementById("productContainer");
   container.innerHTML = `
     <div class="row">
@@ -63,10 +60,10 @@ function renderProduct(product, offers) {
         ${renderProductImage(product)}
       </div>
       <div class="col-md-7">
-        ${renderProductInfo(product, offers)}
+        ${renderProductInfo(product, offersInfo)}
         ${renderAddToCartButton(product)}
         <hr />
-        ${renderOffersSection(offers)}
+        ${renderOffersSection(offersInfo)}
       </div>
     </div>
   `;
@@ -84,7 +81,7 @@ function renderProductImage(product) {
   `;
 }
 
-function renderProductInfo(product, offers) {
+function renderProductInfo(product, offersInfo) {
   return `
     <h3>${product.title}</h3>
 
@@ -92,8 +89,8 @@ function renderProductInfo(product, offers) {
       ${product.description}
     </p>
 
-    ${renderPriceSection(product.price, offers.discountedPrice)}
-    ${renderOfferSummary(offers.globalOffers.length, offers.activePersonal.length, offers.availablePersonal.length)}
+    ${renderPriceSection(product.price, offersInfo.discountedPrice)}
+    ${renderOfferSummary(offersInfo.globalOffers.length, offersInfo.activePersonal.length, offersInfo.availablePersonal.length)}
 
     <p>
       <strong>Stock:</strong>
@@ -163,8 +160,8 @@ function renderAddToCartButton(product) {
   `;
 }
 
-function renderOffersSection(offers) {
-  const globalOffers = offers.globalOffers, activePersonal = getAvailableUserOffers(offers, true), availablePersonal = getAvailableUserOffers(offers, false);
+function renderOffersSection(offersInfo) {
+  const globalOffers = offersInfo.globalOffers, activePersonal = offersInfo.activePersonal, availablePersonal = offersInfo.availablePersonal;
   const personalOffers = [...activePersonal, ...availablePersonal];
 
   if (globalOffers.length === 0 && personalOffers.length === 0) {
@@ -264,8 +261,8 @@ function bindProductActions(product, offers) {
 function bindAllOfferActions() {
   document.querySelectorAll(".activate-offer").forEach(button => {
     button.onclick = async () => {
-      await tryFunction("Offer activated.", "Failed to activate offer.", async () => {
-        await offersApi.activateOffer(getCurrentUser().email, Number(button.dataset.id));
+      await tryFunction("Offer activated.", "Failed to activate offer", async () => {
+        await offersApi.activateOffer(getCurrentUser().email, Number(button.dataset.id), true);
         loadProduct();
       });
     };
@@ -275,3 +272,5 @@ function bindAllOfferActions() {
 document.addEventListener("DOMContentLoaded", () => {
   loadProduct();
 });
+
+// TODO: possibly add 'go to cart' button

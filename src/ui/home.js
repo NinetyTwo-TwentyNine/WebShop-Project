@@ -19,30 +19,43 @@ async function loadHomePage() {
   ]);
 
   renderCategories(categories);
-  renderFeaturedProducts(featuredProducts);
+  renderFeaturedProducts(featuredProducts, categories);
 }
 
 function renderCategories(categories) {
   const container = document.getElementById("categories");
 
-  categories.forEach(cat => {
-    const btn = document.createElement("button");
-    btn.className = "btn btn-outline-primary me-2 mb-2";
-    btn.textContent = cat.name;
+  container.className = "row g-4 mb-4";
 
-    // TODO: navigation logic later
-    container.appendChild(btn);
+  categories.forEach(cat => {
+    const col = document.createElement("div");
+    col.className = "col-md-4 text-center";
+
+    col.innerHTML = `
+      <button class="btn btn-outline-primary w-100">
+        ${cat.name}
+      </button>
+    `;
+
+    container.appendChild(col);
   });
 }
 
-function renderFeaturedProducts(products) {
+function renderFeaturedProducts(products, categories) {
   const container = document.getElementById("featured-products");
 
-  products.forEach(product => {
+  categories.forEach(cat => {
     const col = document.createElement("div");
     col.className = "col-md-4";
 
-    col.appendChild(createProductCard(product));
+    const product = products.find(p => p.categoryId === cat.id);
+
+    if (product) {
+      col.appendChild(createProductCard(product));
+    } else {
+      col.innerHTML = `<div class="h-100"></div>`;
+    }
+
     container.appendChild(col);
   });
 }
@@ -52,4 +65,4 @@ document.addEventListener("DOMContentLoaded", () => {
   loadHomePage();
 });
 
-// TODO: fix category alignment
+// TODO: create links for product sorting from categories

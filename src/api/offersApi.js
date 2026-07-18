@@ -7,7 +7,8 @@ import {
   and,
   or,
   getDocs,
-  updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+  updateDoc,
+  deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 import { db } from "../config/firebaseClient.js";
 import { DB_COLLECTION_NAME_OFFERS, DB_COLLECTION_NAME_USEROFFERS } from "../data/constants.js";
 import { divideOffers, filterOffersByProduct, uploadFilter } from "../domain/utils.js";
@@ -75,7 +76,7 @@ export const offersApi = {
     return finalData;
   },
 
-  async activateOffer(userEmail, offerId) {
+  async activateOffer(userEmail, offerId, activate) {
     const snap = await getDocs(query(collection(db, DB_COLLECTION_NAME_USEROFFERS), where("offerId", "==", offerId), where("userEmail", "==", userEmail)));
 
     if (snap.empty) {
@@ -84,15 +85,31 @@ export const offersApi = {
 
     const userOffer = {docId: snap.docs[0].id, ...snap.docs[0].data()};
 
-    if (userOffer.isUsed === true || userOffer.isActivated === true)
+    if (userOffer.isUsed === true)
     {
-      throw new Error("Can't activate that offer.");
+      throw new Error("Offer already applied.");
+    }
+    if (userOffer.isActivated === Boolean(activate)) {
+      throw new Error("Offer already (de)activated.");
     }
 
-    userOffer.isActivated = true;
+    userOffer.isActivated = Boolean(activate);
     await updateDoc(doc(db, DB_COLLECTION_NAME_USEROFFERS, snap.docs[0].id), uploadFilter(userOffer));
     return userOffer;
   },
+
+  async deleteOffer(userEmail, offerId) {
+    const snap = await getDocs(query(collection(db, DB_COLLECTION_NAME_USEROFFERS), where("offerId", "==", offerId), where("userEmail", "==", userEmail)));
+
+    if (snap.empty) {
+      throw new Error("User offer not found.");
+    }
+
+    const userOffer = {docId: snap.docs[0].id, ...snap.docs[0].data()};
+    
+    await deleteDoc(doc(db, DB_COLLECTION_NAME_USEROFFERS, snap.docs[0].id));
+    return userOffer;
+  }
 
   // TODO: apply chanceParams during order completion
 };

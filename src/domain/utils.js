@@ -82,7 +82,6 @@ export function applyOffers(orderItems = [], productList = [], offers = [], offe
     });
 
     item.productPrice = applyDiscounts(product.price, offersToApply);
-    delete item.productId;
   });
 
   offersToDeactivate.forEach(l => {
@@ -131,8 +130,8 @@ export function getNextOrderStatus(status) {
         return ORDER_STATUS.SHIPPED;
     case ORDER_STATUS.SHIPPED:
         return ORDER_STATUS.DELIVERED;
-    case ORDER_STATUS.DELIVERED:
-        return ORDER_STATUS.RECEIVED;
+    //case ORDER_STATUS.DELIVERED:
+        //return ORDER_STATUS.RECEIVED;
     default:
       return status;
   }
@@ -147,7 +146,11 @@ export function shouldAdvanceOrder(order, currentTime) {
 }
 
 export function isOrderFinished(order) {
-  return order.status === ORDER_STATUS.DELIVERED || order.status === ORDER_STATUS.CANCELLED;
+  return order.status === ORDER_STATUS.RECEIVED || order.status === ORDER_STATUS.CANCELED;
+}
+
+export function canReturnItemsToStock(productSnap, orderItem) {
+  return productSnap && (productSnap.data().title === orderItem.productTitle); // In case the initial product was removed, and some other one was created with its id
 }
 
 export function advanceOrder(order) {
@@ -164,15 +167,19 @@ export function advanceOrder(order) {
   return order;
 }
 
-export function cancelOrder(order) {
-  order.status = ORDER_STATUS.CANCELLED;
+export function cancelOrder(order, currentTime) {
+  if (order.status === ORDER_STATUS.CREATED) {
+    order.status = ORDER_STATUS.CANCELED;
+    order.updatedAt = currentTime;
+  }
 
   return order;
 }
 
-export function confirmReceipt(order) {
+export function confirmReceipt(order, currentTime) {
   if (order.status === ORDER_STATUS.DELIVERED) {
     order.status = ORDER_STATUS.RECEIVED;
+    order.updatedAt = currentTime;
   }
 
   return order;
@@ -200,12 +207,23 @@ export function formatCents(cents) {
   return (cents / 100).toFixed(2);
 }
 
+export function formatDate(timeStamp) {
+  const date = new Date(Number(timeStamp));
+
+  return [
+    String(date.getDate()).padStart(2, "0"),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    date.getFullYear(),
+  ].join(".");
+}
+
 export function isProductNew(product, currentTime) {
   return (currentTime - product.createdAt) < ORDER_STATUS_NEW_DAY_COUNT * 24 * 60 * 60 * 1000;
 }
 
 export function getAvailableUserOffers(offers, activated) {
   if (!offers || !offers.personalOffers || !offers.userOfferLinks) {
+    alert(JSON.stringify(offers, null, 2));
     throw new Error("Supplied with malformed offers object (getAvailableUserOffers).");
   }
 

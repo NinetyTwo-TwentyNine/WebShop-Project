@@ -22,16 +22,17 @@ export const productsApi = {
       where("id", "==", Number(productId)),
     );
 
-    const snapshot = await getDocs(q);
-    if (snapshot.empty) {
+    const productsSnap = await getDocs(q);
+    if (productsSnap.empty) {
         throw new Error(`Product with this id (${productId}) doesn't exist.`);
     }
+    const snapshot = productsSnap.docs[0];
 
     if (!getReference) {
-      return snapshot.docs.map(doc => ({
-        docId: doc.id,
-        ...doc.data()
-      }))[0];
+      return {
+        docId: snapshot.id,
+        ...snapshot.data()
+      }
     } else {
       return snapshot;
     }
@@ -109,27 +110,30 @@ export const productsApi = {
 
   async checkQuantityUpdate(productId, quantity_change) {
     const productSnap = await this.getProductById(productId, true);
-    const product = productSnap.docs.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }))[0];
+    const product = {
+      docId: productSnap.id,
+      ...productSnap.data()
+    };
  
-    const returnObject = { updateAllowed: !(product.stock + quantity_change < 0), snapshot: productSnap };
-    return returnObject;
+    return {updateAllowed: !(product.stock + quantity_change < 0), snapshot: productSnap};
   },
 
   async updateProductQuantity(productSnap, quantity_change) {
-    const product = productSnap.docs.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }))[0];
+    if (Number(quantity_change) === 0) {
+      return; 
+    }
 
-    const new_quantity = product.stock + quantity_change;
+    const product = {
+      docId: productSnap.id,
+      ...productSnap.data()
+    };
+    const new_quantity = product.stock + Number(quantity_change);
+    
     if (new_quantity < 0) {
       throw new Error("Invalid quantity.");
     }
 
-    const docRef = productSnap.docs[0].ref;
+    const docRef = productSnap.ref;
     await updateDoc(docRef, { stock: new_quantity });
   },
 
