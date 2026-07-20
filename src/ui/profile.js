@@ -6,6 +6,7 @@ import { calculateOrderPrice, tryFunction, formatCents, getOrderStatusLabel, adv
 import { ORDER_STATUS } from "../data/constants.js" 
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
 import { startOrderSync, subscribeOrders } from "../state/orderState.js";
+import { startOfferSync, subscribeOffers } from "../state/offerState.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -20,12 +21,17 @@ async function loadProfile() {
   }
   const userEmail = getCurrentUser()?.email;
 
-  [{personalOffers, globalOffers, userOfferLinks},] = await Promise.all([
-    offersApi.getAllOffers(userEmail),
+  await Promise.all([
+    startOfferSync(userEmail),
     startOrderSync(userEmail)
   ]);
 
-  renderOffers(personalOffers, userOfferLinks);
+  subscribeOffers(({ globalOffers, personalOffers, userOfferLinks }) => {
+    const scrollY = window.scrollY;
+    renderOffers(globalOffers, personalOffers, userOfferLinks);
+    window.scrollTo({top: scrollY});
+  });
+
   subscribeOrders((newOrders) => {
     const scrollY = window.scrollY;
     renderOrders(newOrders);
@@ -34,6 +40,7 @@ async function loadProfile() {
 }
 
 const expandedOrders = new Set();
+
 
 function renderOrders(orders) {
   currentOrders = orders;
@@ -223,18 +230,22 @@ function bindOrderCardEvents(card, order) {
 }
 
 
-function renderOffers(offers, links) {
+function renderOffers(newGlobalOffers, newPersonalOffers, newOfferLinks) {
+  globalOffers = newGlobalOffers;
+  personalOffers = newPersonalOffers;
+  userOfferLinks = newOfferLinks;
+
   const offersContainer = document.getElementById("offersContainer");
 
   offersContainer.innerHTML = "";
 
-  if (!offers || offers.length === 0 || !links || links.length === 0) {
+  if (!newPersonalOffers || newPersonalOffers.length === 0 || !newOfferLinks || newOfferLinks.length === 0) {
     offersContainer.innerHTML = `<p class="text-muted">No offers</p>`;
     return;
   }
 
-  offers.forEach(offer => {
-    const offerLink = links.find(l => l.offerId == offer.id);
+  newPersonalOffers.forEach(offer => {
+    const offerLink = newOfferLinks.find(l => l.offerId == offer.id);
     if (!offerLink) {
       return;
     }
@@ -312,7 +323,7 @@ function bindOfferCardEvents(offer, div) {
         userOfferLinks = userOfferLinks.filter(l => l.offerId != offerLink.offerId);
         personalOffers = personalOffers.filter(o => o.id != offerLink.offerId);
       }
-      renderOffers(personalOffers, userOfferLinks);
+      renderOffers(globalOffers, personalOffers, userOfferLinks);
     }
   }
 
@@ -347,5 +358,3 @@ function bindOfferCardEvents(offer, div) {
 document.addEventListener("DOMContentLoaded", () => {
   loadProfile();
 });
-
-// TODO: perhaps add images for the order items

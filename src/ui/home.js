@@ -26,23 +26,34 @@ function renderCategories(categories) {
   const container = document.getElementById("categories");
 
   container.className = "row g-4 mb-4";
+  container.innerHTML = "";
 
   categories.forEach(cat => {
     const col = document.createElement("div");
     col.className = "col-md-4 text-center";
 
     col.innerHTML = `
-      <button class="btn btn-outline-primary w-100">
+      <button
+        class="btn btn-outline-primary w-100 category-btn"
+        data-category="${cat.id}"
+      >
         ${cat.name}
       </button>
     `;
 
     container.appendChild(col);
   });
+
+  container.querySelectorAll(".category-btn").forEach(btn => {
+    btn.onclick = () => {
+      window.location.href = `./products.html?category=${btn.dataset.category}`;
+    };
+  });
 }
 
 function renderFeaturedProducts(products, categories) {
   const container = document.getElementById("featured-products");
+  container.innerHTML = "";
 
   categories.forEach(cat => {
     const col = document.createElement("div");
@@ -64,5 +75,3 @@ document.addEventListener("DOMContentLoaded", () => {
   document.title = `${APP_NAME_MAIN} – Home`;
   loadHomePage();
 });
-
-// TODO: create links for product sorting from categories

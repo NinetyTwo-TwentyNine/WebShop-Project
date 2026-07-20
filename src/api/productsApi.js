@@ -115,7 +115,7 @@ export const productsApi = {
       ...productSnap.data()
     };
  
-    return {updateAllowed: !(product.stock + quantity_change < 0), snapshot: productSnap};
+    return {updateAllowed: !(product.stock + Number(quantity_change) < 0), snapshot: productSnap};
   },
 
   async updateProductQuantity(productSnap, quantity_change) {

@@ -121,7 +121,7 @@ export function divideOffers(allOffers, userEmail, userOfferSnap) {
 export function createOrderObject(id, userEmail) {
   const now = Date.now();
 
-  return {id, userEmail, status: ORDER_STATUS.CREATED, createdAt: now, updatedAt: now + getTransitionDuration(ORDER_STATUS.CREATED)};
+  return {id, userEmail, status: ORDER_STATUS.CREATED, createdAt: now, updatedAt: now + getTransitionDuration(ORDER_STATUS.CREATED), isHidden: false};
 }
 
 export function getNextOrderStatus(status) {
@@ -130,8 +130,6 @@ export function getNextOrderStatus(status) {
         return ORDER_STATUS.SHIPPED;
     case ORDER_STATUS.SHIPPED:
         return ORDER_STATUS.DELIVERED;
-    //case ORDER_STATUS.DELIVERED:
-        //return ORDER_STATUS.RECEIVED;
     default:
       return status;
   }
@@ -149,7 +147,7 @@ export function isOrderFinished(order) {
   return order.status === ORDER_STATUS.RECEIVED || order.status === ORDER_STATUS.CANCELED;
 }
 
-export function canReturnItemsToStock(productSnap, orderItem) {
+export function checkItemStockMatch(productSnap, orderItem) {
   return productSnap && (productSnap.data().title === orderItem.productTitle); // In case the initial product was removed, and some other one was created with its id
 }
 
@@ -183,6 +181,20 @@ export function confirmReceipt(order, currentTime) {
   }
 
   return order;
+}
+
+export function rollOfferChance(purchaseCount, {minThreshold, maxThreshold, curvePower, maxChance}) {
+  let chance;
+  if (purchaseCount < minThreshold) {
+    chance = 0;
+  } else if (purchaseCount >= maxThreshold) {
+    chance = maxChance;
+  } else {
+    const progress = (purchaseCount - minThreshold) / (maxThreshold - minThreshold);
+    chance = maxChance * Math.pow(progress, curvePower);
+  }
+
+  return (Math.random() < chance / 100);
 }
 
 // =================================
@@ -279,4 +291,12 @@ export async function tryFunction(successMessage, failureMessage, func) {
 export function getOrderStatusLabel(status) {
   return Object.keys(ORDER_STATUS)
     .find(key => ORDER_STATUS[key] === status) ?? "UNKNOWN";
+}
+
+export function queryChunk(array, size) {
+  const result = [];
+  for (let i = 0; i < array.length; i += size) {
+    result.push(array.slice(i, i + size));
+  }
+  return result;
 }

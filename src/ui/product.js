@@ -238,6 +238,21 @@ function bindProductActions(product, offers) {
   const addBtn = document.getElementById("addToCartBtn");
   if (!addBtn) return;
 
+  const cart = cartApi.getCurrentUserCart();
+  const isInCart = cart?.items.some(i => i.productId == product.id);
+
+  if (isInCart) {
+    addBtn.textContent = "Go to cart";
+    addBtn.classList.remove("btn-primary");
+    addBtn.classList.add("btn-warning");
+
+    addBtn.onclick = () => {
+      window.location.href = "./cart.html";
+    };
+
+    return;
+  }
+
   addBtn.onclick = async () => {
     if (!isAuthenticated()) {
       window.location.href = "./login.html";
@@ -245,16 +260,21 @@ function bindProductActions(product, offers) {
     }
 
     addBtn.disabled = true;
-    let new_offers = offers, new_product = product;
+    let newProduct = offers, newOffers = product;
+
     await tryFunction("Added to cart.", "Failed to add to cart", async () => {
-      await cartApi.addToCart(product.id);
-      [new_product, new_offers] = await Promise.all([
-        productsApi.getProductById(productId),
-        offersApi.getApplicableOffers(product, getCurrentUser()?.email)
-      ]);
-    });
-    renderProduct(new_product, new_offers);
+        await cartApi.addToCart(product.id);
+
+        [newProduct, newOffers] = await Promise.all([
+          productsApi.getProductById(productId),
+          offersApi.getApplicableOffers(product, getCurrentUser()?.email)
+        ]);
+      }
+    );
+
+    renderProduct(newProduct, newOffers);
   };
+
   addBtn.disabled = false;
 }
 
@@ -272,5 +292,3 @@ function bindAllOfferActions() {
 document.addEventListener("DOMContentLoaded", () => {
   loadProduct();
 });
-
-// TODO: possibly add 'go to cart' button

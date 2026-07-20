@@ -5,14 +5,16 @@ import { DB_COLLECTION_NAME_ORDERS, DB_COLLECTION_NAME_ORDERITEMS, DB_COLLECTION
 import { productsApi } from "./productsApi.js";
 import { offersApi } from "./offersApi.js";
 import { cartApi } from "./cartApi.js";
-import { advanceOrder, applyDiscounts, applyOffers, cancelOrder, canReturnItemsToStock, confirmReceipt, createOrderObject, filterOffersByProduct, getUniqueId, isOrderFinished, shouldAdvanceOrder, uploadFilter } from "../domain/utils.js";
+import { advanceOrder, applyDiscounts, applyOffers, cancelOrder, checkItemStockMatch, confirmReceipt, createOrderObject, filterOffersByProduct, getUniqueId, isOrderFinished, shouldAdvanceOrder, uploadFilter } from "../domain/utils.js";
 
 export const ordersApi = {
-  async getUserOrders(userEmail) {
-    const orderQuery = query(
-      collection(db, DB_COLLECTION_NAME_ORDERS),
-      where("userEmail", "==", userEmail),
-    );
+  async getUserOrders(userEmail, showHidden = false) {
+    let orderQuery;
+    if (!showHidden) {
+      orderQuery = query(collection(db, DB_COLLECTION_NAME_ORDERS), where("userEmail", "==", userEmail), where("isHidden", "==", false));
+    } else {
+      orderQuery = query(collection(db, DB_COLLECTION_NAME_ORDERS), where("userEmail", "==", userEmail));
+    }
     const [ordersSnap, itemsSnap] = await Promise.all([
       getDocs(orderQuery),
       getDocs(collection(db, DB_COLLECTION_NAME_ORDERITEMS)),
@@ -57,7 +59,7 @@ export const ordersApi = {
 
   async createOrder(userEmail) {
     const [orderList, cart, allOffers, productList] = await Promise.all([
-      this.getUserOrders(userEmail),
+      this.getUserOrders(userEmail, true),
       cartApi.initializeUserCart(userEmail),
       offersApi.getAllOffers(userEmail),
       productsApi.getAllProducts()
@@ -112,20 +114,21 @@ export const ordersApi = {
     }
     advanceOrder(order);
 
-    await updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order));
-    
     const orderItems = itemsSnap.docs.map(doc => ({
       docId: doc.id,
       ...doc.data()
-    }));
-    order.items = orderItems.filter(item => item.orderId === order.id);
+    })).filter(item => item.orderId === order.id);
+
+    await updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order));
+    
+    order.items = orderItems;
     return order;
   },
 
   async confirmReceipt(orderId) {
     const [ordersSnap, itemsSnap] = await Promise.all([
       getDocs(query(collection(db, DB_COLLECTION_NAME_ORDERS), where("id", "==", orderId))),
-      getDocs(collection(db, DB_COLLECTION_NAME_ORDERITEMS)),
+      getDocs(collection(db, DB_COLLECTION_NAME_ORDERITEMS))
     ]);
     if (ordersSnap.empty) {
       throw new Error(`No order found according to this ID (${orderId}).`);
@@ -137,13 +140,17 @@ export const ordersApi = {
     }
     confirmReceipt(order, Date.now());
 
-    await updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order));
-
     const orderItems = itemsSnap.docs.map(doc => ({
       docId: doc.id,
       ...doc.data()
-    }));
-    order.items = orderItems.filter(item => item.orderId === order.id);
+    })).filter(item => item.orderId === order.id);
+
+    await Promise.all([
+      updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order)),
+      offersApi.progressOffers(order.userEmail, orderItems.map(i => i.productId))
+    ]);
+
+    order.items = orderItems;
     return order;
   },
 
@@ -172,7 +179,7 @@ export const ordersApi = {
       updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order)),
       orderItems.map(item => {
         const productSnap = productsSnap.docs.find(snap => snap.data().id === item.productId);
-        if (canReturnItemsToStock(productSnap, item)) {
+        if (checkItemStockMatch(productSnap, item)) {
           return productsApi.updateProductQuantity(productSnap, item.quantity);
         } else {
           return null;
@@ -200,18 +207,14 @@ export const ordersApi = {
     if (!isOrderFinished(order)) {
       throw new Error(`Order according to this ID can't be deleted as it isn't done.`);
     }
+    order.isHidden = true;
 
     const orderItems = itemsSnap.docs.map(doc => ({
       docId: doc.id,
       ...doc.data()
     })).filter(item => item.orderId === order.id);
 
-    await Promise.all([
-      deleteDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id)),
-      orderItems.map(item => {
-        return deleteDoc(doc(db, DB_COLLECTION_NAME_ORDERITEMS, item.docId));
-      })
-    ]);
+    await updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order));
 
     order.items = orderItems;
     return order;
