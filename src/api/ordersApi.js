@@ -157,8 +157,8 @@ export const ordersApi = {
   async cancelOrder(orderId) {
     const [ordersSnap, itemsSnap, productsSnap] = await Promise.all([
       getDocs(query(collection(db, DB_COLLECTION_NAME_ORDERS), where("id", "==", orderId))),
-      getDocs(collection(db, DB_COLLECTION_NAME_ORDERITEMS)),
-      getDocs(collection(db, DB_COLLECTION_NAME_PRODUCTS))
+      getDocs(query(collection(db, DB_COLLECTION_NAME_ORDERITEMS), where("orderId", "==", orderId))),
+      productsApi.getAllProducts(true)
     ]);
     if (ordersSnap.empty) {
       throw new Error(`No order found according to this ID (${orderId}).`);
@@ -179,7 +179,7 @@ export const ordersApi = {
       updateDoc(doc(db, DB_COLLECTION_NAME_ORDERS, ordersSnap.docs[0].id), uploadFilter(order)),
       orderItems.map(item => {
         const productSnap = productsSnap.docs.find(snap => snap.data().id === item.productId);
-        if (checkItemStockMatch(productSnap, item)) {
+        if (checkItemStockMatch(productSnap.data(), item)) {
           return productsApi.updateProductQuantity(productSnap, item.quantity);
         } else {
           return null;

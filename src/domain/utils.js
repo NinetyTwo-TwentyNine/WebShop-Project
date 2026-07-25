@@ -1,8 +1,8 @@
+import { MS_PER_DAY, ORDER_STATUS, ORDER_STATUS_NEW_DAY_COUNT, ORDER_TRANSITION_TIME } from "../data/constants.js";
+
 // =================================
 // Domain (api) emulation
 // =================================
-
-import { ORDER_STATUS, ORDER_STATUS_NEW_DAY_COUNT, ORDER_TRANSITION_TIME } from "../data/constants.js";
 
 export function pickRandomProductPerCategory(products) {
   const byCategory = new Map();
@@ -24,7 +24,7 @@ export function pickRandomProductPerCategory(products) {
   return result;
 }
 
-export async function createNewUserCart(userEmail, allCarts) {
+export function createNewUserCart(userEmail, allCarts) {
   if (userEmail == null || userEmail == "")
   {
     throw Error("No proper email was provided.");
@@ -47,7 +47,7 @@ export async function createNewUserCart(userEmail, allCarts) {
 
 export function applyDiscounts(basePriceCents, offers = []) {
   return offers.reduce((price, offer) => {
-    if (!offer.isActive || offer.isUsed) {
+    if (!offer.isActive && offer.isGlobal) {
       return price;
     } else {
       return Math.round(price * (100 - offer.discountPercent) / 100);
@@ -147,8 +147,8 @@ export function isOrderFinished(order) {
   return order.status === ORDER_STATUS.RECEIVED || order.status === ORDER_STATUS.CANCELED;
 }
 
-export function checkItemStockMatch(productSnap, orderItem) {
-  return productSnap && (productSnap.data().title === orderItem.productTitle); // In case the initial product was removed, and some other one was created with its id
+export function checkItemStockMatch(product, orderItem) {
+  return product && orderItem && (product.title === orderItem.productTitle); // In case the initial product was removed, and some other one was created with its id
 }
 
 export function advanceOrder(order) {
@@ -230,13 +230,12 @@ export function formatDate(timeStamp) {
 }
 
 export function isProductNew(product, currentTime) {
-  return (currentTime - product.createdAt) < ORDER_STATUS_NEW_DAY_COUNT * 24 * 60 * 60 * 1000;
+  return (currentTime - product.createdAt) < ORDER_STATUS_NEW_DAY_COUNT * MS_PER_DAY;
 }
 
 export function getAvailableUserOffers(offers, activated) {
   if (!offers || !offers.personalOffers || !offers.userOfferLinks) {
-    alert(JSON.stringify(offers, null, 2));
-    throw new Error("Supplied with malformed offers object (getAvailableUserOffers).");
+    throw new Error(`Supplied with malformed offers object (getAvailableUserOffers): ${JSON.stringify(offers, null, 2)}`);
   }
 
   return offers.personalOffers.filter(o => {

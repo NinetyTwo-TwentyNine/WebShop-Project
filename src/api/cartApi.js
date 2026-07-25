@@ -24,15 +24,6 @@ export const cartApi = {
       return newCart;
   },
 
-  async getAllCarts() {
-    const snapshot = await getDocs(collection(db, DB_COLLECTION_NAME_CARTS));
-
-    return snapshot.docs.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }));
-  },
-
   getCurrentUserCart() {
     if (current_user_cart == null)
     {

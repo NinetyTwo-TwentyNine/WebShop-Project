@@ -17,22 +17,23 @@ let products = [], allCategories = [];
 async function loadPage() {
   const params = new URLSearchParams(window.location.search);  
   const search = params.get("search") ?? "";
-  const sort = params.get("sort") ?? "newest";
+  const sort = params.get("sort") ?? document.getElementById("sortSelect").options[0].value;
   const page = Number(params.get("page") ?? 1);
   const categories = (params.get("category") ?? "").split(",").filter(Boolean);
 
-  [products, allCategories,] = await Promise.all([
+  const [productsData, allCategories,] = await Promise.all([
     productsApi.getFilteredProducts(search, sort, page, PRODUCTS_PAGE_SIZE, categories),
     categoriesApi.getAllCategories(),
     initAuth()
   ]);
+  products = productsData.items;
 
   renderFilters(allCategories, search, sort, categories);
-  renderPagination(products.page, products.totalPages);
+  renderPagination(productsData.page, productsData.totalPages);
 
   const userEmail = getCurrentUser()?.email;
-  const offerMap = await offersApi.getApplicableOffersMap(products.items, userEmail ?? "");
-  renderProducts(products.items, offerMap);
+  const offerMap = await offersApi.getApplicableOffersMap(products.map(i => i.id), userEmail ?? "");
+  renderProducts(products, offerMap);
 }
 
 function renderFilters(categories, search, sort, selected) {

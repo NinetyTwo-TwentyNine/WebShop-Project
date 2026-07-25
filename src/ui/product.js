@@ -18,11 +18,12 @@ if (!productId) {
 }
 
 async function loadProduct() {
-  await initAuth();
-
   let product;
   try {
-    product = await productsApi.getProductById(productId);
+    [product,] = await Promise.all([
+      productsApi.getProductById(productId),
+      initAuth()
+    ]);
   } catch (e) {
     alert("Product not found.");
     window.location.href = "./home.html";
@@ -33,11 +34,11 @@ async function loadProduct() {
   if (isAuthenticated()) {
     const userEmail = getCurrentUser()?.email;
     [offers,] = await Promise.all([
-      offersApi.getApplicableOffers(product, userEmail),
+      offersApi.getApplicableOffers(productId, userEmail),
       cartApi.initializeUserCart(userEmail)
     ]);
   } else {
-    offers = await offersApi.getApplicableOffers(product, "");
+    offers = await offersApi.getApplicableOffers(productId, "");
   }
   renderProduct(product, offers);
 
@@ -238,8 +239,11 @@ function bindProductActions(product, offers) {
   const addBtn = document.getElementById("addToCartBtn");
   if (!addBtn) return;
 
-  const cart = cartApi.getCurrentUserCart();
-  const isInCart = cart?.items.some(i => i.productId == product.id);
+  let isInCart = false;
+  if (isAuthenticated()) {
+    const cart = cartApi.getCurrentUserCart();
+    isInCart = cart?.items.some(i => i.productId == product.id);
+  }
 
   if (isInCart) {
     addBtn.textContent = "Go to cart";
@@ -260,14 +264,14 @@ function bindProductActions(product, offers) {
     }
 
     addBtn.disabled = true;
-    let newProduct = offers, newOffers = product;
+    let newProduct = product, newOffers = offers;
 
     await tryFunction("Added to cart.", "Failed to add to cart", async () => {
         await cartApi.addToCart(product.id);
 
         [newProduct, newOffers] = await Promise.all([
           productsApi.getProductById(productId),
-          offersApi.getApplicableOffers(product, getCurrentUser()?.email)
+          offersApi.getApplicableOffers(productId, getCurrentUser()?.email)
         ]);
       }
     );

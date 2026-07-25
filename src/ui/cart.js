@@ -5,7 +5,7 @@ import { offersApi } from "../api/offersApi.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { productsApi } from "../api/productsApi.js";
 import { initAuth, isAuthenticated, getCurrentUser } from "../state/authState.js";
-import { formatCents, applyDiscounts, tryFunction, filterOffersByProduct } from "../domain/utils.js";
+import { formatCents, applyDiscounts, tryFunction, filterOffersByProduct, getAvailableUserOffers } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -50,21 +50,16 @@ async function renderCart(cart, allProducts, allUserOffers) {
   let total = 0;
 
   cart.items.forEach(item => {
-    const products = allProducts.filter(product => Number(product.id) === Number(item.productId));
+    const product = allProducts.find(product => Number(product.id) === Number(item.productId));
 
-    if (products) {
-      const product = products[0];
-
+    if (product) {
       const globalOffers = filterOffersByProduct(allUserOffers.globalOffers, product);
       const personalOffers = filterOffersByProduct(allUserOffers.personalOffers, product);
 
       const activatedOfferIds = allUserOffers.userOfferLinks.filter(l => l.isActivated && !l.isUsed).map(l => l.offerId);
       const activatedPersonalOffers = personalOffers.filter(o => activatedOfferIds.includes(o.id));
 
-      const allDiscounts = [
-        ...globalOffers,
-        ...activatedPersonalOffers
-      ];
+      const allDiscounts = [...globalOffers, ...activatedPersonalOffers];
 
       // --- PRICE CALC ---
       const discountedUnitPrice = applyDiscounts(product.price, allDiscounts);

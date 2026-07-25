@@ -13,6 +13,8 @@ import {
 import { db } from "../config/firebaseClient.js";
 import { DB_COLLECTION_NAME_OFFERS, DB_COLLECTION_NAME_ORDERITEMS, DB_COLLECTION_NAME_PRODUCTS, DB_COLLECTION_NAME_USEROFFERS } from "../data/constants.js";
 import { checkItemStockMatch, divideOffers, filterOffersByProduct, queryChunk, rollOfferChance, uploadFilter } from "../domain/utils.js";
+import { productsApi } from "./productsApi.js";
+import { ordersApi } from "./ordersApi.js";
 
 export const offersApi = {
   async downloadUserOffers(userEmail = "") {
@@ -41,8 +43,11 @@ export const offersApi = {
     return { offersSnapshot: snapshot, userOffersSnapshot: userOfferSnap };
   },
 
-  async getApplicableOffers(product, userEmail = "") {
-    const userOfferData = await this.downloadUserOffers(userEmail);
+  async getApplicableOffers(productId, userEmail = "") {
+    const [userOfferData, product] = await Promise.all([
+      this.downloadUserOffers(userEmail),
+      productsApi.getProductById(productId)
+    ]);
     const snapshot = userOfferData.offersSnapshot, userOfferSnap = userOfferData.userOffersSnapshot;
 
     const allOffers = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
@@ -52,8 +57,11 @@ export const offersApi = {
     return finalData;
   },
 
-  async getApplicableOffersMap(products, userEmail = "") {
-    const userOfferData = await this.downloadUserOffers(userEmail);
+  async getApplicableOffersMap(productIds = [], userEmail = "") {
+    const [userOfferData, products] = await Promise.all([
+      this.downloadUserOffers(userEmail),
+      Promise.all(productIds.map(productId => productsApi.getProductById(productId))),
+    ]);
     const snapshot = userOfferData.offersSnapshot, userOfferSnap = userOfferData.userOffersSnapshot;
 
     const allOffers = snapshot.docs.map(d => ({ docId: d.id, ...d.data() }));
@@ -113,27 +121,14 @@ export const offersApi = {
   },
 
   async progressOffers(userEmail, productIds = []) {
-    const itemQueries = productIds.length ? queryChunk(productIds, 30).map(ids =>
-      getDocs(query(collection(db, DB_COLLECTION_NAME_ORDERITEMS), where("productId", "in", ids)))
-    ) : [];
-    const productQueries = productIds.length ? queryChunk(productIds, 30).map(ids =>
-      getDocs(query(collection(db, DB_COLLECTION_NAME_PRODUCTS), where("id", "in", ids)))
-    ) : [];
-
-    let [itemsSnap, productsSnap, offersSnap, userOffersSnap] = await Promise.all([
-      Promise.all(itemQueries),
-      Promise.all(productQueries),
+    const [orders, products, offersSnap, userOffersSnap] = await Promise.all([
+      ordersApi.getUserOrders(userEmail, true),
+      Promise.all(productIds.map(productId => productsApi.getProductById(productId))),
       getDocs(query(collection(db, DB_COLLECTION_NAME_OFFERS), where("isActive", "==", true), where("isGlobal", "==", false))),
       getDocs(query(collection(db, DB_COLLECTION_NAME_USEROFFERS), where("userEmail", "==", userEmail)))
     ]);
 
-    itemsSnap = itemsSnap.flatMap(snapshot => snapshot.docs);
-    productsSnap = productsSnap.flatMap(snapshot => snapshot.docs);
-
-    const orderItems = itemsSnap.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }));
+    const orderItems = orders.flatMap(order => order.items);
 
     const offers = offersSnap.docs.map(doc => ({
       docId: doc.id,
@@ -152,9 +147,9 @@ export const offersApi = {
     const offersToActivate = [];
     for (const offer of offersToProgress) {
       const orderItemsForOffer = orderItems.filter(i => {
-        const productSnap = productsSnap.find(d => d.data().id == i.productId);
-        if (checkItemStockMatch(productSnap, i)) {
-          return ((offer.isEntireCategory && productSnap.data().categoryId == offer.affectedId) || (!offer.isEntireCategory && productSnap.data().id == offer.affectedId))
+        const product = products.find(p => p.id == i.productId);
+        if (checkItemStockMatch(product, i)) {
+          return ((offer.isEntireCategory && product.categoryId == offer.affectedId) || (!offer.isEntireCategory && product.id == offer.affectedId))
         }
         return false;
       });

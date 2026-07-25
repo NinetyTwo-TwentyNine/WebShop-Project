@@ -1,4 +1,4 @@
-export const APP_NAME_MAIN = "WebShop"
+export const APP_NAME_MAIN = "WebShop";
 
 export const PASSWORD_LENGTH_MIN = 8;
 
@@ -12,7 +12,8 @@ export const ORDER_STATUS = {
     CANCELED: 4
 };
 
-export const ORDER_STATUS_NEW_DAY_COUNT = 14
+export const MS_PER_DAY = 24 * 60 * 60 * 1000;
+export const ORDER_STATUS_NEW_DAY_COUNT = 14;
 
 export const ORDER_TRANSITION_TIME = {
   [ORDER_STATUS.CREATED]: 60_000,

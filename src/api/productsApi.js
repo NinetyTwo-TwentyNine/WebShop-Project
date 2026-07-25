@@ -7,13 +7,17 @@ import { DB_COLLECTION_NAME_PRODUCTS } from "../data/constants.js";
 import { categoriesApi } from "./categoriesApi.js";
 
 export const productsApi = {
-  async getAllProducts() {
+  async getAllProducts(getReference = false) {
     const snapshot = await getDocs(collection(db, DB_COLLECTION_NAME_PRODUCTS));
 
-    return snapshot.docs.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }));
+    if (!getReference) {
+      return snapshot.docs.map(doc => ({
+        docId: doc.id,
+        ...doc.data()
+      }));
+    } else {
+      return snapshot;
+    }
   },
 
   async getProductById(productId, getReference = false) {
@@ -39,15 +43,11 @@ export const productsApi = {
   },
 
   async getFilteredProducts(search, sort, page, pageSize = PRODUCTS_PAGE_SIZE, categories = []) {
-    const [productsSnap, allCategories] = await Promise.all([
-      getDocs(collection(db, DB_COLLECTION_NAME_PRODUCTS)),
+    const [allProducts, allCategories] = await Promise.all([
+      this.getAllProducts(),
       categoriesApi.getAllCategories()
     ]);
 
-    const allProducts = productsSnap.docs.map(doc => ({
-      docId: doc.id,
-      ...doc.data()
-    }));
     const allowedCategories = allCategories.map(category => {
       if (categories.length === 0) {
         return category.id;
