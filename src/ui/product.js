@@ -4,7 +4,7 @@ import { productsApi } from "../api/productsApi.js";
 import { offersApi } from "../api/offersApi.js";
 import { cartApi } from "../api/cartApi.js";
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
-import { applyDiscounts, formatCents, getAvailableUserOffers, tryFunction } from "../domain/utils.js";
+import { formatCents, tryFunction } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -32,28 +32,19 @@ async function loadProduct() {
 
   let offers;
   if (isAuthenticated()) {
-    const userEmail = getCurrentUser()?.email;
     [offers,] = await Promise.all([
-      offersApi.getApplicableOffers(productId, userEmail),
-      cartApi.initializeUserCart(userEmail)
+      offersApi.getApplicableOffers(productId),
+      cartApi.initializeUserCart()
     ]);
   } else {
-    offers = await offersApi.getApplicableOffers(productId, "");
+    offers = await offersApi.getApplicableOffers(productId);
   }
   renderProduct(product, offers);
 
   bindAllOfferActions();
 }
 
-function renderProduct(product, offers) {
-  const activePersonal = getAvailableUserOffers(offers, true);
-  const availablePersonal = getAvailableUserOffers(offers, false);
-
-  const activeOffers = [...offers.globalOffers, ...activePersonal];
-  const discountedPrice = applyDiscounts(product.price, activeOffers);
-
-  const offersInfo = {globalOffers: offers.globalOffers, activePersonal, availablePersonal, discountedPrice};
-
+function renderProduct(product, offersInfo) {
   const container = document.getElementById("productContainer");
   container.innerHTML = `
     <div class="row">
@@ -69,7 +60,7 @@ function renderProduct(product, offers) {
     </div>
   `;
 
-  bindProductActions(product, offers);
+  bindProductActions(product, offersInfo);
 }
 
 function renderProductImage(product) {
@@ -270,8 +261,8 @@ function bindProductActions(product, offers) {
         await cartApi.addToCart(product.id);
 
         [newProduct, newOffers] = await Promise.all([
-          productsApi.getProductById(productId),
-          offersApi.getApplicableOffers(productId, getCurrentUser()?.email)
+          productsApi.getProductById(product.id),
+          offersApi.getApplicableOffers(product.id)
         ]);
       }
     );
@@ -286,7 +277,7 @@ function bindAllOfferActions() {
   document.querySelectorAll(".activate-offer").forEach(button => {
     button.onclick = async () => {
       await tryFunction("Offer activated.", "Failed to activate offer", async () => {
-        await offersApi.activateOffer(getCurrentUser().email, Number(button.dataset.id), true);
+        await offersApi.activateOffer(Number(button.dataset.id), true);
         loadProduct();
       });
     };

@@ -1,144 +1,39 @@
 // src/api/productsApi.js
-import { collection, query, where, getDocs, updateDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-import { db } from "../config/firebaseClient.js";
-
-import { pickRandomProductPerCategory } from "../domain/utils.js";
-import { DB_COLLECTION_NAME_PRODUCTS } from "../data/constants.js";
-import { categoriesApi } from "./categoriesApi.js";
+import { apiFetch, currentUserEmail } from "../domain/utils.js";
+import { ENDPOINTS } from "../data/constants.js";
 
 export const productsApi = {
-  async getAllProducts(getReference = false) {
-    const snapshot = await getDocs(collection(db, DB_COLLECTION_NAME_PRODUCTS));
-
-    if (!getReference) {
-      return snapshot.docs.map(doc => ({
-        docId: doc.id,
-        ...doc.data()
-      }));
-    } else {
-      return snapshot;
-    }
+  async getAllProducts() {
+    return await apiFetch(`${ENDPOINTS.PRODUCTS}/all`);
   },
 
-  async getProductById(productId, getReference = false) {
-    const q = query(
-      collection(db, DB_COLLECTION_NAME_PRODUCTS),
-      where("id", "==", Number(productId)),
-    );
-
-    const productsSnap = await getDocs(q);
-    if (productsSnap.empty) {
-        throw new Error(`Product with this id (${productId}) doesn't exist.`);
-    }
-    const snapshot = productsSnap.docs[0];
-
-    if (!getReference) {
-      return {
-        docId: snapshot.id,
-        ...snapshot.data()
-      }
-    } else {
-      return snapshot;
-    }
+  async getProductById(productId) {
+    return await apiFetch(`${ENDPOINTS.PRODUCTS}/${productId}`);
   },
 
-  async getFilteredProducts(search, sort, page, pageSize = PRODUCTS_PAGE_SIZE, categories = []) {
-    const [allProducts, allCategories] = await Promise.all([
-      this.getAllProducts(),
-      categoriesApi.getAllCategories()
-    ]);
+  async getProductsByIds(productIds = []) {
+    const params = new URLSearchParams();
+    productIds.forEach(id => params.append("ids", id));
 
-    const allowedCategories = allCategories.map(category => {
-      if (categories.length === 0) {
-        return category.id;
-      } else if (categories.includes(`${category.id}`)) {
-        return category.id;
-      } else {
-        return null;
-      }
-    });
-
-    const filteredProducts = allProducts.filter(product => {
-      const matchesSearch = search === "" || product.title.toLowerCase().includes(search.toLowerCase());
-      const matchesCategory = allowedCategories.includes(product.categoryId);
-
-      return matchesSearch && matchesCategory;
-    });
-
-    let sortingFunc;
-    switch(sort) {
-      case 'newest': {
-        sortingFunc = ((a, b) => b.createdAt - a.createdAt);
-      }
-      break;
-      case 'oldest': {
-        sortingFunc = ((a, b) => a.createdAt - b.createdAt);
-      }
-      break;
-      case 'priceAsc': {
-        sortingFunc = ((a, b) => a.price - b.price);
-      }
-      break;
-      case 'priceDesc': {
-        sortingFunc = ((a, b) => b.price - a.price);
-      }
-      break;
-      case 'nameAsc': {
-        sortingFunc = ((a, b) => a.title.localeCompare(b.title));
-      }
-      break;
-      case 'nameDesc': {
-        sortingFunc = ((a, b) => b.title.localeCompare(a.title));
-      }
-      break;
-      default: {
-        throw new Error("Encountered unknown sorting type (getFilteredProducts).");
-      }
-    }
-
-    filteredProducts.sort(sortingFunc);
-
-    const finalProducts = [];
-    for (let i = 0; i < filteredProducts.length; i++) {
-      if (i >= pageSize * (page-1) && i < pageSize * page) {
-        finalProducts.push(filteredProducts[i]);
-      }
-    }
-    
-    return {items: finalProducts, page, totalPages: Math.ceil(filteredProducts.length / pageSize)};
+    return await apiFetch(`${ENDPOINTS.PRODUCTS}?${params.toString()}`);
   },
 
-  async checkQuantityUpdate(productId, quantity_change) {
-    const productSnap = await this.getProductById(productId, true);
-    const product = {
-      docId: productSnap.id,
-      ...productSnap.data()
-    };
- 
-    return {updateAllowed: !(product.stock + Number(quantity_change) < 0), snapshot: productSnap};
-  },
+  async getFilteredProducts(search = "", sort = "NEWEST", page = 1, pageSize = PRODUCTS_PAGE_SIZE, categories = []) {
+    const params = new URLSearchParams();
 
-  async updateProductQuantity(productSnap, quantity_change) {
-    if (Number(quantity_change) === 0) {
-      return; 
-    }
+    if (search)
+      params.append("search", search);
 
-    const product = {
-      docId: productSnap.id,
-      ...productSnap.data()
-    };
-    const new_quantity = product.stock + Number(quantity_change);
-    
-    if (new_quantity < 0) {
-      throw new Error("Invalid quantity.");
-    }
+    params.append("sort", sort);
+    params.append("page", page);
+    params.append("pageSize", pageSize);
 
-    const docRef = productSnap.ref;
-    await updateDoc(docRef, { stock: new_quantity });
+    categories.forEach(id => params.append("categories", id));
+
+    return await apiFetch(`${ENDPOINTS.PRODUCTS}/filter?${params.toString()}`);
   },
 
   async getFeaturedProductsByCategory() {
-    const products = await this.getAllProducts();
-    return pickRandomProductPerCategory(products);
+    return await apiFetch(`${ENDPOINTS.PRODUCTS}/featured`);
   }
 };

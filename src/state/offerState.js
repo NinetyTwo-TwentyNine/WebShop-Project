@@ -7,7 +7,6 @@ let currentOffers = {
   userOfferLinks: []
 };
 
-let currentUserEmail = null;
 let timerId = null;
 
 const listeners = new Set();
@@ -30,13 +29,11 @@ export function unsubscribeOffers(listener) {
   listeners.delete(listener);
 }
 
-export async function startOfferSync(userEmail) {
-  currentUserEmail = userEmail;
+export async function startOfferSync() {
+  await syncOffers(true);
 
-  await syncOffers();
-
-  if (timerId) return;
-
+  if (timerId)
+    return;
   timerId = setInterval(syncOffers, OFFER_SYNC_INTERVAL);
 }
 
@@ -45,7 +42,6 @@ export function stopOfferSync() {
 
   clearInterval(timerId);
   timerId = null;
-  currentUserEmail = null;
 }
 
 export async function refreshOffers() {
@@ -56,9 +52,9 @@ function notify() {
   listeners.forEach(l => l(currentOffers));
 }
 
-async function syncOffers() {
-  if (!currentUserEmail) return;
+async function syncOffers(forced = false) {
+  if (!timerId && !forced) return;
 
-  const offers = await offersApi.getAllOffers(currentUserEmail);
+  const offers = await offersApi.getAllOffers();
   setOffers(offers);
 }

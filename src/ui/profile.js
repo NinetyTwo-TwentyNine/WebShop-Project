@@ -2,7 +2,7 @@ import { createNavbar } from "./layout/navbar.js";
 import { createFooter } from "./layout/footer.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { offersApi } from "../api/offersApi.js";
-import { calculateOrderPrice, tryFunction, formatCents, getOrderStatusLabel, advanceOrder, isOrderFinished, formatDate } from "../domain/utils.js";
+import { calculateOrderPrice, tryFunction, formatCents, getOrderStatusLabel, isOrderFinished, formatDate } from "../domain/utils.js";
 import { ORDER_STATUS } from "../data/constants.js" 
 import { getCurrentUser, initAuth, isAuthenticated } from "../state/authState.js";
 import { startOrderSync, subscribeOrders } from "../state/orderState.js";
@@ -19,11 +19,10 @@ async function loadProfile() {
   {
     window.location.replace("./login.html");
   }
-  const userEmail = getCurrentUser()?.email;
 
   await Promise.all([
-    startOfferSync(userEmail),
-    startOrderSync(userEmail)
+    startOfferSync(),
+    startOrderSync()
   ]);
 
   subscribeOffers(({ globalOffers, personalOffers, userOfferLinks }) => {
@@ -330,7 +329,7 @@ function bindOfferCardEvents(offer, div) {
   if (activateBtn) {
     activateBtn.onclick = async () => {
       const activatedOffer = await tryFunction("Offer activated.", "Failed to activate offer", async () => {
-        return await offersApi.activateOffer(getCurrentUser().email, offer.id, true);
+        return await offersApi.activateOffer(offer.id, true);
       });
       updateOffersDisplay(activatedOffer, true);
     };
@@ -339,7 +338,7 @@ function bindOfferCardEvents(offer, div) {
   if (deactivateBtn) {
     deactivateBtn.onclick = async () => {
       const deactivatedOffer = await tryFunction("Offer deactivated.", "Failed to deactivate offer", async () => {
-        return await offersApi.activateOffer(getCurrentUser().email, offer.id, false);
+        return await offersApi.activateOffer(offer.id, false);
       });
       updateOffersDisplay(deactivatedOffer, true);
     };
@@ -348,7 +347,7 @@ function bindOfferCardEvents(offer, div) {
   if (deleteBtn) {
     deleteBtn.onclick = async () => {
       const deletedOffer = await tryFunction("Offer deleted.", "Failed to delete offer", async () => {
-        return await offersApi.deleteOffer(getCurrentUser().email, offer.id);
+        return await offersApi.deleteOffer(offer.id);
       });
       updateOffersDisplay(deletedOffer, false);
     };

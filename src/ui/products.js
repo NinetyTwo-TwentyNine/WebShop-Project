@@ -3,11 +3,11 @@ import {createFooter} from "./layout/footer.js";
 
 import {productsApi} from "../api/productsApi.js";
 import {categoriesApi} from "../api/categoriesApi.js";
+import { offersApi } from "../api/offersApi.js";
 
-import {applyDiscounts, formatCents, getAvailableUserOffers, isProductNew} from "../domain/utils.js";
+import {formatCents, isProductNew} from "../domain/utils.js";
 import { PRODUCTS_PAGE_SIZE } from "../data/constants.js";
 import { getCurrentUser, initAuth } from "../state/authState.js";
-import { offersApi } from "../api/offersApi.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -32,7 +32,7 @@ async function loadPage() {
   renderPagination(productsData.page, productsData.totalPages);
 
   const userEmail = getCurrentUser()?.email;
-  const offerMap = await offersApi.getApplicableOffersMap(products.map(i => i.id), userEmail ?? "");
+  const offerMap = await offersApi.getApplicableOffersMap(products.map(i => i.id));
   renderProducts(products, offerMap);
 }
 
@@ -76,18 +76,11 @@ function renderProducts(products, offerMap) {
     return;
   }
 
-  container.innerHTML = products.map(product => renderProductCard(product, offerMap.get(product.id))).join("");
+  container.innerHTML = products.map(product => renderProductCard(product, offerMap[String(product.id)])).join("");
 }
 
-function renderProductCard(product, offers) {
+function renderProductCard(product, offersInfo) {
   const isNew = isProductNew(product, Date.now());
-
-  const activePersonal = getAvailableUserOffers(offers, true);
-  const availablePersonal = getAvailableUserOffers(offers, false);
-
-  const activeOffers = [...offers.globalOffers, ...activePersonal];
-
-  const discountedPrice = applyDiscounts(product.price, activeOffers);
 
   return `
     <div class="col-md-4">
@@ -102,8 +95,8 @@ function renderProductCard(product, offers) {
       ${product.title}
     </h5>
     
-    ${renderPriceSection(product.price, discountedPrice)}
-    ${renderOfferSummary(offers.globalOffers.length, activePersonal.length, availablePersonal.length)}
+    ${renderPriceSection(product.price, offersInfo.discountedPrice)}
+    ${renderOfferSummary(offersInfo.globalOffers.length, offersInfo.activePersonal.length, offersInfo.availablePersonal.length)}
 
     <p>
       Stock:

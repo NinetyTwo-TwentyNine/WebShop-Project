@@ -5,7 +5,7 @@ import { offersApi } from "../api/offersApi.js";
 import { ordersApi } from "../api/ordersApi.js";
 import { productsApi } from "../api/productsApi.js";
 import { initAuth, isAuthenticated, getCurrentUser } from "../state/authState.js";
-import { formatCents, applyDiscounts, tryFunction, filterOffersByProduct, getAvailableUserOffers } from "../domain/utils.js";
+import { formatCents, tryFunction } from "../domain/utils.js";
 
 document.getElementById("navbar").append(createNavbar());
 document.getElementById("footer").append(createFooter());
@@ -17,17 +17,21 @@ async function loadCart() {
   {
     window.location.replace("./login.html");
   }
-  const userEmail = getCurrentUser()?.email;
 
-  const [cart, allProducts, allUserOffers] = await Promise.all([
-    cartApi.initializeUserCart(userEmail),
-    productsApi.getAllProducts(),
-    offersApi.getAllOffers(userEmail),
+  const cart = await cartApi.initializeUserCart();
+  const productIds = [];
+  cart.items.forEach(item => {
+    productIds.push(item.productId);
+  });
+
+  const [offerMap, products] = await Promise.all([
+    offersApi.getApplicableOffersMap(productIds),
+    productsApi.getProductsByIds(productIds)
   ]);
-  renderCart(cart, allProducts, allUserOffers);
+  renderCart(cart, products, offerMap);
 }
 
-async function renderCart(cart, allProducts, allUserOffers) {
+async function renderCart(cart, products, offerMap) {
   const container = document.getElementById("cartItems");
   const totalPriceEl = document.getElementById("totalPrice");
   const clearBtn = document.getElementById("clearCartBtn");
@@ -50,19 +54,12 @@ async function renderCart(cart, allProducts, allUserOffers) {
   let total = 0;
 
   cart.items.forEach(item => {
-    const product = allProducts.find(product => Number(product.id) === Number(item.productId));
+    const product = products.find(product => Number(product.id) === Number(item.productId));
 
     if (product) {
-      const globalOffers = filterOffersByProduct(allUserOffers.globalOffers, product);
-      const personalOffers = filterOffersByProduct(allUserOffers.personalOffers, product);
-
-      const activatedOfferIds = allUserOffers.userOfferLinks.filter(l => l.isActivated && !l.isUsed).map(l => l.offerId);
-      const activatedPersonalOffers = personalOffers.filter(o => activatedOfferIds.includes(o.id));
-
-      const allDiscounts = [...globalOffers, ...activatedPersonalOffers];
-
-      // --- PRICE CALC ---
-      const discountedUnitPrice = applyDiscounts(product.price, allDiscounts);
+      const offersInfo = offerMap[String(product.id)];
+      const allDiscounts = [...offersInfo.globalOffers, ...offersInfo.activePersonal];
+      const discountedUnitPrice = offersInfo.discountedPrice;
       
       const itemTotal = discountedUnitPrice * item.quantity;
       total += itemTotal;
@@ -119,7 +116,7 @@ async function renderCart(cart, allProducts, allUserOffers) {
         await tryFunction("", "Failed to update quantity", async () => {
           new_cart = await cartApi.updateQuantity(product.id, -1);
         });
-        renderCart(new_cart, allProducts, allUserOffers);
+        renderCart(new_cart, products, offerMap);
       };
 
       plusBtn.addEventListener("click", async () => {
@@ -128,7 +125,7 @@ async function renderCart(cart, allProducts, allUserOffers) {
         await tryFunction("", "Failed to update quantity", async () => {
           new_cart = await cartApi.updateQuantity(product.id, 1);
         });
-        renderCart(new_cart, allProducts, allUserOffers);
+        renderCart(new_cart, products, offerMap);
       });
 
       removeBtn.addEventListener("click", async () => {
@@ -137,7 +134,7 @@ async function renderCart(cart, allProducts, allUserOffers) {
         await tryFunction("", "Failed to remove item", async () => {
           new_cart = await cartApi.removeItem(product.id);
         });
-        renderCart(new_cart, allProducts, allUserOffers);
+        renderCart(new_cart, products, offerMap);
       });
 
       container.appendChild(div);
@@ -155,16 +152,29 @@ async function renderCart(cart, allProducts, allUserOffers) {
     await tryFunction("Cart cleared.", "Failed to clear cart", async () => {
       new_cart = await cartApi.clearCart();
     });
-    renderCart(new_cart, allProducts, allUserOffers);
+    renderCart(new_cart, products, offerMap);
   }
 
   purchaseBtn.onclick = async () => {
     const userEmail = getCurrentUser()?.email;
-    let new_cart = cart, new_offers = allUserOffers;
+    let new_cart = cart, new_offers = [];
     await tryFunction("Order purchased.", "Failed to purchase", async () => {
-      ({cart: new_cart, allOffers: new_offers,} = await ordersApi.createOrder(userEmail));
+      ({cart: new_cart, allOffers: new_offers,} = await ordersApi.createOrder());
     });
-    renderCart(new_cart, allProducts, new_offers);
+
+    let newOfferMap = {}, new_products = [];
+    if (new_cart.items.length != 0) {
+        const productIds = [];
+        new_cart.items.forEach(item => {
+          productIds.push(item.productId);
+        });
+
+        [newOfferMap, new_products] = await Promise.all([
+          offersApi.getApplicableOffersMap(productIds),
+          productsApi.getProductsByIds(productIds)
+        ]);
+    }
+    renderCart(new_cart, new_products, newOfferMap);
   };
 
   activatePanel(true);
